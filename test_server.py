@@ -1,11 +1,14 @@
 # This file is act as simulating servers to test the functionality of client program
 
 import socket
+import time
 import os
 
 #This function is used for searching files in the file system
 def search_files(file_name, path):
     tar_Files = os.listdir(path)
+#print tar_Files
+#   print file_name
     Found = False
     for file in tar_Files:
         if file == file_name:
@@ -103,21 +106,71 @@ while True:
 	    if search_files(file_name, path):
 		print "From Server - Found the file"
 	        conn.send("The requested file exists")
+	        time.sleep(0.0001)
 		location = locate_files(file_name, path)
 		conn.send(location)
 # After getting the request for transmitting files, begin transmitting
-		respond = conn.recv(1024)
-		if respond == "Please send file":
+		if conn.recv(1024) == "Please send file":
 		    f = open(location, "rb")
-		    content = f.read(1024)
+		    content = f.readline()
 	            conn.send(content)
 	            while (content):
 			content = f.readline()
 			conn.send(content)
+		    time.sleep(0.0001)
 		    conn.send("###")
 	    else:
                 conn.send("The requested file doens't exist")
             processing_block = False
+
+# If the request is for uploading files
+        elif data == "Requests for uploading files":
+	    processing_block = True
+	    conn.send("Ready to receive files")
+	    file_name = conn.recv(1024)
+	    path = "/Users/kokkyounominamirui/Desktop"
+	    file_name = path + "/server/" + file_name
+	    f = open(file_name, "wb")
+            content = conn.recv(1024)
+	    while True:
+	        f.write(content)
+	        content = conn.recv(1024)
+	        if content == "###":
+	            break
+	    f.close()
+	    conn.send("Have received the whole file")
+	    processing_block = False
+
+# If the request is for listing files
+	elif data == "Requests for listing files in data server":
+	    processing_block = True
+	    path = "/Users/kokkyounominamirui/Desktop"
+	    all_files = os.listdir(path)
+	    for files in all_files:
+	        conn.send(files)
+	        time.sleep(0.001)
+            conn.send("###")	
+	    processing_block = False
+
+# If the request is for deleting files
+        elif data == "Requests for deleting some files":
+            processing_block = True
+	    conn.send("Which file you want to delete")
+	    file_name = conn.recv(1024)
+	    print "From server - " + file_name
+# Firstly, make sure that the file does exist in the data server
+	    path = "/Users/kokkyounominamirui/Desktop"
+	    if search_files(file_name, path) == True:
+	        conn.send("Do you want to delete it")
+		if conn.recv(1024) == "Yes":
+		    file_name = path + "/" + file_name
+		    os.remove(file_name)
+		    conn.send("Delete successfully")
+# If the file doesn't exist, return Error information
+            else:
+	        conn.send("The file doesn't exist")
+	    processing_block = False	    
+
 
 	if processing_block == False:	
 	    data = conn.recv(1024)
