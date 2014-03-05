@@ -12,7 +12,7 @@ class simpleapp_wx(wx.Frame):
         self.initialize()
 
     def initialize(self):
-        self.sizer = wx.GridBagSizer()
+        self.sizer = wx.BoxSizer()
         # Top panel
         self.mainPanel = wx.Panel(self, -1)
         # Panel for function toolbar (left side)
@@ -21,15 +21,20 @@ class simpleapp_wx(wx.Frame):
         self.displayPanel = wx.Panel(self, -1)
         
         # Sign up or login process
-        self.LoginPanel()
-        self.sizer.Add(self.mainPanel, (0,0), (1,1), wx.ALIGN_CENTER)
+        self.initialPanel = InitialPanel(self)
+        self.loginPanel = LoginPanel(self)
+        self.loginPanel.Hide()
+        
+        self.sizer.Add(self.initialPanel, 1, wx.EXPAND)
+        self.sizer.Add(self.loginPanel, 1, wx.EXPAND)
         
         self.SetSizerAndFit(self.sizer)
-        self.Show(True)
+        self.Show()
 
-	# Panel for sign up or login
-    def LoginPanel(self):
-    	panel = wx.Panel(self, -1, size=(200, 100), style=wx.ALIGN_CENTER)
+# Panel for sign up or login
+class InitialPanel(wx.Panel):
+    def __init__(self,parent):
+        wx.Panel.__init__(self, parent=parent, size=(200, 100), style=wx.ALIGN_CENTER)
     	sizer = wx.BoxSizer(wx.VERTICAL)
     	
     	# Sign up
@@ -42,9 +47,38 @@ class simpleapp_wx(wx.Frame):
         sizer.Add(log_in, 2, wx.ALIGN_CENTER)
         self.Bind(wx.EVT_BUTTON, self.Log_inClick, log_in)
         
-        panel.SetSizer(sizer)
-        panel.Layout()
-        self.mainPanel = panel;
+        self.SetSizer(sizer)
+
+    def Sign_upClick(self,event):
+        self.label.SetLabel( "Sign up process" )
+        
+    def Log_inClick(self,event):        
+        self.Hide()
+        self.GetParent().loginPanel.Show()
+        self.GetParent().GetSizer().Layout()
+        
+class LoginPanel(wx.Panel):
+    def __init__(self,parent):
+        wx.Panel.__init__(self, parent=parent, size=(200, 200), style=wx.ALIGN_CENTER)
+        sizer = wx.GridBagSizer()
+        
+        label0 = wx.StaticText(self,-1,label=u'Username', style=wx.ALIGN_CENTER)
+        sizer.Add(label0, (0,0), (1,1))
+        
+        text0 = wx.TextCtrl(self, -1)
+        sizer.Add(text0, (0,1), (1,1), wx.EXPAND)
+        
+        label1 = wx.StaticText(self,-1,label=u'Password', style=wx.ALIGN_CENTER)
+        sizer.Add(label1, (1,0), (1,1))
+        
+        text1 = wx.TextCtrl(self, -1)
+        sizer.Add(text1, (1,1), (1,1), wx.EXPAND)
+        
+        button = wx.Button(self,-1,label="Log in")
+        sizer.Add(button, (2,0), (1,2), wx.EXPAND)
+
+        self.SetSizer(sizer)
+        
         
     # Panel for function toolbar
     def FunctionPanel(self):
@@ -74,25 +108,22 @@ class simpleapp_wx(wx.Frame):
         
         panel.SetSizer(sizer)
         panel.Layout()
-        self.functionPanel = panel;
+        self.functionPanel = panel
     
-    def InitialPanel(self):
-        panel = wx.Panel(self, -1, size=(250, 200))
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        # Initial message panel
-        label = wx.StaticText(self,-1,label=u'Welcome!', size=(250, 200), style=wx.ALIGN_CENTER)
-        label.SetForegroundColour(wx.RED)
-        sizer.Add( self.label, wx.ALIGN_CENTER )
-        
-        panel.SetSizer(sizer)
-        panel.Layout()
-        self.displayPanel = panel;
+#     def InitialPanel(self):
+#         panel = wx.Panel(self, -1, size=(250, 200))
+#         sizer = wx.BoxSizer(wx.VERTICAL)
+#         
+#         # Initial message panel
+#         label = wx.StaticText(self,-1,label=u'Welcome!', size=(250, 200), style=wx.ALIGN_CENTER)
+#         label.SetForegroundColour(wx.RED)
+#         sizer.Add( self.label, wx.ALIGN_CENTER )
+#         
+#         panel.SetSizer(sizer)
+#         panel.Layout()
+#         self.displayPanel = panel
 
     # Individual panels for each function
-    def Log_inClick(self,event):
-        self.Show(False)
-        self.Show(True)
     
     def SearchClick(self,event):
         self.label.SetLabel( "Search process" )
@@ -105,9 +136,6 @@ class simpleapp_wx(wx.Frame):
     
     def DeleteClick(self,event):
         self.label.SetLabel( "Delete process" )
-    
-    def Sign_upClick(self,event):
-        self.label.SetLabel( "Sign up process" )
     
     def Change_passClick(self,event):
         self.label.SetLabel( "Change password process" )
