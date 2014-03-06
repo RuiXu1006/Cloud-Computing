@@ -20,22 +20,29 @@ class simpleapp_wx(wx.Frame):
         self.loginPanel = LoginPanel(self)
         self.loginPanel.Hide()
         self.signupPanel = SignupPanel(self)
-        self.signupPanel.Hide()
-        self.mainPanel = MainPanel(self)
-        self.mainPanel.Hide()
+        self.signupPanel.Hide()    
+        self.welcomePanel = WelcomePanel(self)
+        self.welcomePanel.Hide()
+        self.changePassPanel = ChangePassPanel(self)
+        self.changePassPanel.Hide()
         
         self.sizer.Add(self.initialPanel, 1, wx.EXPAND)
         self.sizer.Add(self.loginPanel, 1, wx.EXPAND)
         self.sizer.Add(self.signupPanel, 1, wx.EXPAND)
-        self.sizer.Add(self.mainPanel, 1, wx.EXPAND)
+        self.sizer.Add(self.welcomePanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
+        self.sizer.Add(self.changePassPanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
         
         self.SetSizerAndFit(self.sizer)
         self.Show()
+    
+    def HideAll(self):
+        self.welcomePanel.Hide()
+        self.changePassPanel.Hide()
 
 # Panel for sign up or login
 class InitialPanel(wx.Panel):
     def __init__(self,parent):
-        wx.Panel.__init__(self, parent=parent, size=(500,250), style=wx.ALIGN_CENTER)
+        wx.Panel.__init__(self, parent=parent, size=(300,200), style=wx.ALIGN_CENTER)
     	sizer = wx.BoxSizer(wx.VERTICAL)
     	
     	# Sign up
@@ -91,7 +98,10 @@ class LoginPanel(wx.Panel):
     
     def Log_inClick(self,event):
         self.Hide()
-        self.GetParent().mainPanel.Show()
+        self.menubar = functionMenuBar()
+        self.GetParent().SetMenuBar(self.menubar)
+        self.GetParent().Layout()
+        self.GetParent().welcomePanel.Show()
         self.GetParent().GetSizer().Layout()
 
 class SignupPanel(wx.Panel):
@@ -123,33 +133,35 @@ class SignupPanel(wx.Panel):
         self.SetSizer(hbox)
         
 # Panel for function toolbar
-class FunctionPanel(wx.Panel):
-    def __init__(self, parent):
-    	wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
-    	sizer = wx.BoxSizer(wx.VERTICAL)
+class functionMenuBar(wx.MenuBar):
+    def __init__(self):
+    	wx.MenuBar.__init__(self)
     	
-        # Function buttons
-        search = wx.Button(self,-1,label="Search", size=(150,20))
-        sizer.Add(search, flag=wx.ALIGN_CENTER|wx.ALL, border=10)
-        self.Bind(wx.EVT_BUTTON, self.SearchClick, search)
+        fileMenu = wx.Menu()
+        search = wx.MenuItem(fileMenu,wx.ID_ANY, 'Search')
+        fileMenu.AppendItem(search)
+        self.Bind(wx.EVT_MENU, self.SearchClick, search)
         
-        download = wx.Button(self,-1,label="Downlaod", size=(150,20))
-        sizer.Add(download, flag=wx.ALIGN_CENTER|wx.ALL, border=10)
-        self.Bind(wx.EVT_BUTTON, self.DownloadClick, download)
+        download = wx.MenuItem(fileMenu,wx.ID_ANY, 'Download')
+        fileMenu.AppendItem(download)
+        self.Bind(wx.EVT_MENU, self.DownloadClick, download)
         
-        upload = wx.Button(self,-1,label="Upload", size=(150,20))
-        sizer.Add(upload, flag=wx.ALIGN_CENTER|wx.ALL, border=10)
-        self.Bind(wx.EVT_BUTTON, self.UploadClick, upload)
+        upload = wx.MenuItem(fileMenu,wx.ID_ANY, 'Upload')
+        fileMenu.AppendItem(upload)
+        self.Bind(wx.EVT_MENU, self.UploadClick, upload)
         
-        delete = wx.Button(self,-1,label="Delete", size=(150,20))
-        sizer.Add(delete, flag=wx.ALIGN_CENTER|wx.ALL, border=10)
-        self.Bind(wx.EVT_BUTTON, self.DeleteClick, delete)
-         
-        change_pass = wx.Button(self,-1,label="Change password", size=(150,20))
-        sizer.Add(change_pass, flag=wx.ALIGN_CENTER|wx.ALL, border=10)
-        self.Bind(wx.EVT_BUTTON, self.Change_passClick, change_pass)
+        delete = wx.MenuItem(fileMenu,wx.ID_ANY, 'Delete')
+        fileMenu.AppendItem(delete)
+        self.Bind(wx.EVT_MENU, self.DeleteClick, delete)
         
-        self.SetSizer(sizer)
+        self.Append(fileMenu, 'File')
+        
+        userMenu = wx.Menu() 
+        change_pass = wx.MenuItem(fileMenu,wx.ID_ANY, 'Change password')
+        userMenu.AppendItem(change_pass)
+        self.Bind(wx.EVT_MENU, self.Change_passClick, change_pass)
+        
+        self.Append(userMenu, 'User')
         
     # Individual panels for each function    
     def SearchClick(self,event):
@@ -176,7 +188,7 @@ class WelcomePanel(wx.Panel):
         
         # Initial message panel
         font = wx.Font(36, wx.DEFAULT, wx.NORMAL, wx.BOLD)
-        label = wx.StaticText(self,-1,label=u'Welcome!', size=(250, 40), style=wx.ALIGN_CENTER)
+        label = wx.StaticText(self,-1,label=u'Welcome!', size=(300, 40), style=wx.ALIGN_CENTER)
         label.SetForegroundColour(wx.RED)
         label.SetFont(font)
         sizer.Add(label, wx.ALIGN_CENTER )
@@ -218,24 +230,6 @@ class ChangePassPanel(wx.Panel):
 
         self.SetSizer(hbox)
         
-class MainPanel(wx.Panel):
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
-        self.functionPanel = FunctionPanel(self)
-        self.welcomePanel = WelcomePanel(self)
-        self.changePassPanel = ChangePassPanel(self)
-        
-        sizer.Add(self.functionPanel, 0, flag=wx.ALIGN_TOP|wx.ALL, border=10)
-        sizer.Add(self.welcomePanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
-        sizer.Add(self.changePassPanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
-        
-        self.SetSizer(sizer)
-    
-    def HideAll(self):
-        self.welcomePanel.Hide()
-        self.changePassPanel.Hide()
     
 if __name__ == "__main__":
     app = wx.App()
