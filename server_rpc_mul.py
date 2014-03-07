@@ -11,8 +11,8 @@ user_record = dict([('rx37','xurui1006'),('zc','1234567')])
 # This path is only used for listing files and changing directories
 global current_path
 global parent_path
-current_path  = "/Users/Zachary/Desktop/unixtest"
-parent_path  = "/Users/Zachary/Desktop"
+current_path  = "~/CloudBox"
+parent_path  = "~"
 global lock
 
 # This function is used for signing up into the data server
