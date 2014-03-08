@@ -1,16 +1,57 @@
 # This file uses RPC method to implement the communcation
 # between single client and single data server
 import xmlrpclib, os, random
+import re
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 
 # This dictionary is used for storing user information in data server
-user_record = dict([('rx37','xurui1006'),('zc','1234567')])
+user_record = dict()
 # This path is only used for listing files and changing directories
 global current_path
 global parent_path
-current_path  = "/Users/kokkyounominamirui/Desktop"
-parent_path  = "/Users/kokkyounominamirui"
+global root_path
+global user_information
+# Firstly, get the home directory of the computer
+home_dir = os.path.expanduser("~")
+root_path = home_dir + "/" + "CloudBox"
+user_information = root_path + "/" + "User_information.txt"
+
+# This function is used for server to build directories at the beginning
+def build_up(root_path):
+# tests whether this directory exists or not, if the directory doesn't exist,
+# create root directory for servers
+    if not (os.path.exists(root_path)):
+        os.mkdir(root_path)
+# Then, based on the user_record, tests whether each user has its own directory
+# or not, if not, building corresponding folders
+    for user_name in user_record:
+        user_folder = root_path + "/" + user_name;
+	if not (os.path.exists(user_folder)):
+	    os.mkdir(user_folder)
+
+# This function is used for getting user record from specific file at the beginning
+def build_user_record():
+# firstly check that whether this user information file exist or not
+    if os.path.exists(user_information):
+        f = open(user_information, 'r')
+    else:
+	f = open(user_information, 'w+')
+	f.close()
+	f = open(user_information, 'r')
+# Each line in the file store the information of a user, therefore we read a line
+# each time
+    content = f.readline()
+    while (content):
+        content_buffer = re.split('\W+', content)
+	for index in range(0, len(content_buffer)-1):
+	    if ( index > 0 ) and ( content_buffer[index-1] == "Username"):
+	        user_name = content_buffer[index]
+	    if ( index > 0 ) and ( content_buffer[index-1] == "Password"):
+	        password = content_buffer[index]
+	        user_record[user_name] = password
+	content = f.readline()
+    print user_record 
 
 # This function is used for signing up into the data server
 def sign_up(user_name):
@@ -24,6 +65,12 @@ def sign_up(user_name):
 # add the user_name and initial password into user_record
         user_record[user_name] = initial_password	
 	respond = initial_password
+	f = open(user_information, 'a')
+	content = "Username: " + user_name + "    " + "Password: " + initial_password + '\n'
+	f.write(content)
+# build new directory file for new users
+	new_dir = root_path + "/" + user_name
+	os.mkdir(new_dir)
 	return respond
 
 # This function is used for changing the password for clients
@@ -35,6 +82,18 @@ def change_password(user_name, original_password, new_password):
         if original_password == user_record[user_name]:
 	    user_record[user_name] = new_password
 	    respond = "Change password successfully"
+# update the change of password in user information file
+	    f = open(user_information, 'r')
+	    lines = f.readlines()
+	    f.close()
+	    f = open(user_information, 'w')
+	    for line in lines:
+	        con_buffer = re.split('\W+', line)
+		if con_buffer[1] != user_name:
+		    f.write(line)
+	        else:
+		    new_line = "Username: " + user_name + "    " + "Password: " + new_password + '\n'
+		    f.write(new_line)
 	    return respond
 	else:
 	    respond = "The original password is wrong"
@@ -45,11 +104,15 @@ def change_password(user_name, original_password, new_password):
 
 # This function is used for logining into the date server
 def login_in(user_name, password):
+    global current_path
+    global parent_path
 # Firstly, make sure that there is user_name in the record
     if user_name in user_record.keys():
 # Then check whether the password corresponds or not
         if password == user_record[user_name]:
 	    respond = "Login in successfully"
+	    current_path = root_path + "/" + user_name
+	    parent_path = current_path
 	    return respond
 	else:
             respond = "The password doesn't match with the given username"
@@ -59,7 +122,8 @@ def login_in(user_name, password):
         return respond	
 
 # This function is used for listing files in the data servers
-def list_files():
+def list_files(user_name):
+    global current_path
     file_list = os.listdir(current_path)
     return file_list
 
@@ -95,12 +159,12 @@ def change_directory(dir_name):
 # This function is used for search files in the file system
 # of data server, if there is required file, return True,
 # otherwise return false
-def search_files(file_name):
+def search_files(user_name, file_name):
 # set the path of root directory, and found flag to be false
-    path = "/Users/kokkyounominamirui/Desktop"
+    work_path = root_path + "/" + user_name
     foundmatch = False
 # With the use of os.walk, go through all files in file system
-    for root, dirs, files in os.walk(path):
+    for root, dirs, files in os.walk(work_path):
 # If file found, set found flag, and get the location of file
         if file_name in files:
 	    file_location = os.path.join(root, file_name)
@@ -116,33 +180,35 @@ def search_files(file_name):
 	return respond
 
 # This function is used for downloading files to client
-def download_files(file_name):
+def download_files(user_name, file_name):
 # set the path root directory, and found flag to be false
-    path = "/Users/kokkyounominamirui/Desktop"
+    work_path = root_path + "/" + user_name
 # get the file location of give file
-    file_location = search_files(file_name)
+    file_location = search_files(user_name, file_name)
     print "From server - The download file locates at " + file_location
     with open(file_location, "rb") as handle:
         return xmlrpclib.Binary(handle.read())
 
 # This function is used for uploading files from client
-def upload_files(file_name, transmit_data):
+def upload_files(user_name, file_name, transmit_data):
 # set the root directory to store upload files, and get
 # the file location
-    path = "/Users/kokkyounominamirui/Desktop/server"
-    file_location = path + "/" + file_name
+    work_path = root_path + "/" + user_name;
+    file_location = work_path + "/" + file_name
     with open(file_location, "wb") as handle:
         handle.write(transmit_data.data)
     return True
 
 # This function is used for deleting files from server
-def delete_files(file_name):
+def delete_files(user_name, file_name):
 # get the location of the file which will be deleted
-    file_location = search_files(file_name)
+    file_location = search_files(user_name, file_name)
     os.remove(file_location)
     return True	
 
 server = SimpleXMLRPCServer(("localhost", 8000))
+build_up(root_path)
+build_user_record()
 server.register_introspection_functions()
 server.register_function(sign_up, "sign_up")
 server.register_function(change_password, "change_password")

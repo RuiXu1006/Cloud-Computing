@@ -1,9 +1,20 @@
 import xmlrpclib
+import os
+
+# Get the home directory
+home_dir = os.path.expanduser("~")
+# When setting up the client, build corresponding files
+root_path = home_dir + "/" + "LocalBox"
+if not (os.path.exists(root_path)):
+    os.mkdir(root_path)
 
 # connect to the remote server of RPC
 client = xmlrpclib.ServerProxy("http://localhost:8000/")
 print "The following are available methods on data server"
 print client.system.listMethods()
+global user_name
+global work_path
+print "Note: At the beginning, you should login in firstly!"
 
 while True:
         # Ask clients to select which function will be used
@@ -36,11 +47,18 @@ while True:
         password = raw_input("Please enter your password:")
         respond = client.login_in(user_name, password)
         print "From client - " + respond
+# if login in successfully, building sub-folders for this user in
+# the local folder
+	if respond == "Login in successfully":
+	    user_folder = root_path + "/" + user_name
+	    if not (os.path.exists(user_folder)):
+	        os.mkdir(user_folder)
+	    work_path = user_folder
 
 # call search_files function in the remote server
     elif state == 1:
         file_name = raw_input("Please enter the file name you want to find:")
-        respond = client.search_files(file_name)
+        respond = client.search_files(user_name, file_name)
 # if respond is not found, print corresponding result
         if respond == "Not found":
             print "Unable to find the corresponding file."
@@ -49,15 +67,14 @@ while True:
 
 # call download_files function in the remote server
     elif state == 2:
-        path = "/Users/kokkyounominamirui/Documents/client"
         file_name = raw_input("Please enter the file name you want to download:")
 # before downloading, make sure that the file exists
-        respond = client.search_files(file_name)
+        respond = client.search_files(user_name, file_name)
 # If the file exists, begin downloading
         if respond != "Not found":
-            file_location = path + "/" + file_name
+            file_location = work_path + "/" + file_name
             with open(file_location, "wb") as handle:
-                handle.write(client.download_files(file_name).data)
+                handle.write(client.download_files(user_name, file_name).data)
 	    print "From client - Downloading file successfully"
 # If the file doesn't exist, show the failure of downloading
         else:
@@ -65,14 +82,13 @@ while True:
 
 # call upload_file function to upload files to server
     elif state == 3:
-        path = "/Users/kokkyounominamirui/Desktop"
 # input the file name which will be uploaded
         file_name = raw_input("Please enter the file name you want to upload:")
-        file_location = path + "/" + file_name
+        file_location = work_path + "/" + file_name
 # open the file, reand the content and send these content
         with open(file_location, "rb") as handle:
             transmit_data = xmlrpclib.Binary(handle.read())
-            respond = client.upload_files(file_name, transmit_data)
+            respond = client.upload_files(user_name, file_name, transmit_data)
 # Based on the respond to output corresponding information
         if respond:
             print "From client - Uploading file successfully"
@@ -84,10 +100,10 @@ while True:
 # enter the file name which will be deleted
         file_name = raw_input("Please enter the file name you want to delete:")
 # make sure that the file does exist
-        respond = client.search_files(file_name)
+        respond = client.search_files(user_name, file_name)
 # if the file exist, delete it
         if respond != "Not found":
-            if client.delete_files(file_name):
+            if client.delete_files(user_name, file_name):
 	        print "From client - Delete file successfully"
 # otherwise, print the error information
         else:
@@ -99,6 +115,9 @@ while True:
             user_name = raw_input("Please enter the username you want:")
 	    initial_password = client.sign_up(user_name)
 	    if initial_password != "Error: This username has been used.":
+	        # build local folder for new user
+	        new_dir = root_path + "/" + user_name;
+		os.mkdir(new_dir)
 	        break
 	    else:
 	        print "From Server - Error: This username has been used"
@@ -122,7 +141,7 @@ while True:
 
 # call list_files function to get the list of files under current directory
     elif state == 7:
-        file_list = client.list_files()
+        file_list = client.list_files(user_name)
 	for files in file_list:
 	    print files
 
