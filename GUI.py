@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+import xmlrpclib
+import os
+
 try:
     import wx
 except ImportError:
@@ -9,6 +12,8 @@ class simpleapp_wx(wx.Frame):
     def __init__(self,parent,id,title):
         wx.Frame.__init__(self,parent,id,title)
         self.parent = parent
+        self.username = "null"
+        self.client = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.initialize()
 
     def initialize(self):
@@ -16,20 +21,22 @@ class simpleapp_wx(wx.Frame):
         
         # Sign up or login process
         self.initialPanel = InitialPanel(self)
-        #self.initialPanel.Hide()
         self.loginPanel = LoginPanel(self)
         self.loginPanel.Hide()
         self.signupPanel = SignupPanel(self)
-        self.signupPanel.Hide()    
-        self.welcomePanel = WelcomePanel(self)
-        self.welcomePanel.Hide()
+        self.signupPanel.Hide()
+        self.listPanel = ListPanel(self)   
+        self.listPanel.Hide() 
+        #self.welcomePanel = WelcomePanel(self)
+        #self.welcomePanel.Hide()
         self.changePassPanel = ChangePassPanel(self)
         self.changePassPanel.Hide()
         
         self.sizer.Add(self.initialPanel, 1, wx.EXPAND)
         self.sizer.Add(self.loginPanel, 1, wx.EXPAND)
         self.sizer.Add(self.signupPanel, 1, wx.EXPAND)
-        self.sizer.Add(self.welcomePanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
+        #self.sizer.Add(self.welcomePanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
+        self.sizer.Add(self.listPanel, 1, flag= wx.ALIGN_TOP|wx.ALL, border=10)
         self.sizer.Add(self.changePassPanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
         
         self.SetSizerAndFit(self.sizer)
@@ -42,7 +49,7 @@ class simpleapp_wx(wx.Frame):
 # Panel for sign up or login
 class InitialPanel(wx.Panel):
     def __init__(self,parent):
-        wx.Panel.__init__(self, parent=parent, size=(300,200), style=wx.ALIGN_CENTER)
+        wx.Panel.__init__(self, parent=parent, size=(500,300), style=wx.ALIGN_CENTER)
     	sizer = wx.BoxSizer(wx.VERTICAL)
     	
     	# Sign up
@@ -70,21 +77,21 @@ class InitialPanel(wx.Panel):
 class LoginPanel(wx.Panel):
     def __init__(self,parent):
         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        hbox = wx.BoxSizer(wx.VERTICAL)
         
         sizer = wx.GridBagSizer(25,10)
         
         label0 = wx.StaticText(self,-1,label=u'Username', style=wx.ALIGN_CENTER)
         sizer.Add(label0, (0,0), (1,1))
         
-        text0 = wx.TextCtrl(self, -1)
-        sizer.Add(text0, (0,1), (1,1), wx.EXPAND)
+        self.text0 = wx.TextCtrl(self, -1)
+        sizer.Add(self.text0, (0,1), (1,1), wx.EXPAND)
         
         label1 = wx.StaticText(self,-1,label=u'Password', style=wx.ALIGN_CENTER)
         sizer.Add(label1, (1,0), (1,1))
         
-        text1 = wx.TextCtrl(self, -1)
-        sizer.Add(text1, (1,1), (1,1), wx.EXPAND)
+        self.text1 = wx.TextCtrl(self, -1, style=wx.TE_PASSWORD)
+        sizer.Add(self.text1, (1,1), (1,1), wx.EXPAND)
         
         button = wx.Button(self,-1,label="Log in")
         sizer.Add(button, (2,0), (1,2), wx.ALIGN_CENTER)
@@ -97,12 +104,21 @@ class LoginPanel(wx.Panel):
         self.SetSizer(hbox)
     
     def Log_inClick(self,event):
-        self.Hide()
-        self.menubar = functionMenuBar()
-        self.GetParent().SetMenuBar(self.menubar)
-        self.GetParent().Layout()
-        self.GetParent().welcomePanel.Show()
-        self.GetParent().GetSizer().Layout()
+        self.GetParent().username = self.text0.GetValue()
+        respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
+        if respond == "Login in successfully":
+            self.Hide()
+            self.menubar = functionMenuBar()
+            self.GetParent().SetMenuBar(self.menubar)
+            self.GetParent().Layout()
+            self.GetParent().listPanel.Show()
+            self.GetParent().GetSizer().Layout()
+        else:
+            self.label2 = wx.StaticText(self,-1,label='Login failed!', style=wx.ALIGN_CENTER)
+            self.GetSizer().Add(self.label2, 1, flag=wx.ALIGN_CENTER)
+            self.GetSizer().Layout()
+            self.GetParent().Layout()
+            self.GetParent().GetSizer().Layout()
 
 class SignupPanel(wx.Panel):
     def __init__(self,parent):
@@ -125,12 +141,17 @@ class SignupPanel(wx.Panel):
         
         button = wx.Button(self,-1,label="Sign up")
         sizer.Add(button, (2,0), (1,2), wx.ALIGN_CENTER)
+        self.Bind(wx.EVT_BUTTON, self.Sign_upClick, button)
         
         sizer.AddGrowableCol(1)
         
         hbox.Add(sizer, proportion=1, flag=wx.ALL|wx.EXPAND, border=15)
 
         self.SetSizer(hbox)
+    
+    # TODO: Need to define the right sign up interface
+    def Sign_upClick(self, event):
+        button = wx.Button(self,-1,label="Sign up")
         
 # Panel for function toolbar
 class functionMenuBar(wx.MenuBar):
@@ -138,21 +159,10 @@ class functionMenuBar(wx.MenuBar):
     	wx.MenuBar.__init__(self)
     	
         fileMenu = wx.Menu()
-        search = wx.MenuItem(fileMenu,wx.ID_ANY, 'Search')
-        fileMenu.AppendItem(search)
-        self.Bind(wx.EVT_MENU, self.SearchClick, search)
-        
-        download = wx.MenuItem(fileMenu,wx.ID_ANY, 'Download')
-        fileMenu.AppendItem(download)
-        self.Bind(wx.EVT_MENU, self.DownloadClick, download)
         
         upload = wx.MenuItem(fileMenu,wx.ID_ANY, 'Upload')
         fileMenu.AppendItem(upload)
         self.Bind(wx.EVT_MENU, self.UploadClick, upload)
-        
-        delete = wx.MenuItem(fileMenu,wx.ID_ANY, 'Delete')
-        fileMenu.AppendItem(delete)
-        self.Bind(wx.EVT_MENU, self.DeleteClick, delete)
         
         self.Append(fileMenu, 'File')
         
@@ -164,36 +174,85 @@ class functionMenuBar(wx.MenuBar):
         self.Append(userMenu, 'User')
         
     # Individual panels for each function    
-    def SearchClick(self,event):
-        self.SetSizer(sizer)
-    
-    def DownloadClick(self,event):
-        self.SetSizer(sizer)
-    
     def UploadClick(self,event):
-        self.SetSizer(sizer)
-    
-    def DeleteClick(self,event):
-        self.SetSizer(sizer)
+        filePicker = wx.FileDialog(self, defaultDir=os.getcwd(), defaultFile="", style=wx.OPEN)
+        filePicker.ShowModal()
+        file_location = filePicker.GetPath()
+        file_name = filePicker.GetFilename()
+        with open(file_location, "rb") as handle:
+            transmit_data = xmlrpclib.Binary(handle.read())
+            respond = self.GetParent().client.upload_files(self.GetParent().username, file_name, transmit_data)
+        self.GetParent().listPanel.listbox.Append(file_name)
+        self.GetParent().GetSizer().Layout()
     
     def Change_passClick(self,event):
         self.GetParent().HideAll()
         self.GetParent().changePassPanel.Show()
         self.GetParent().GetSizer().Layout()
 
-class WelcomePanel(wx.Panel):    
+# class WelcomePanel(wx.Panel):    
+#     def __init__(self, parent):
+#         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
+#         sizer = wx.BoxSizer(wx.VERTICAL)
+#         
+#         # Initial message panel
+#         font = wx.Font(36, wx.DEFAULT, wx.NORMAL, wx.BOLD)
+#         label = wx.StaticText(self,-1,label=u'Welcome!', size=(300, 40), style=wx.ALIGN_CENTER)
+#         label.SetForegroundColour(wx.RED)
+#         label.SetFont(font)
+#         sizer.Add(label, wx.ALIGN_CENTER )
+#         
+#         self.SetSizer(sizer)
+
+class ListPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
-        sizer = wx.BoxSizer(wx.VERTICAL)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
         
-        # Initial message panel
-        font = wx.Font(36, wx.DEFAULT, wx.NORMAL, wx.BOLD)
-        label = wx.StaticText(self,-1,label=u'Welcome!', size=(300, 40), style=wx.ALIGN_CENTER)
-        label.SetForegroundColour(wx.RED)
-        label.SetFont(font)
-        sizer.Add(label, wx.ALIGN_CENTER )
+        filelist = self.GetParent().client.list_files(self.GetParent().username)
+        self.listbox = wx.ListBox(self, -1, choices=filelist)
+        hbox.Add(self.listbox, 1, wx.EXPAND | wx.ALL, 20)
         
-        self.SetSizer(sizer)
+        btnPanel = wx.Panel(self, -1)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        
+        download = wx.Button(btnPanel, -1, 'Download', size = (90, 30))
+        delete = wx.Button(btnPanel, -1, 'Delete', size = (90, 30))
+        
+        self.Bind(wx.EVT_BUTTON, self.OnDownload, download)
+        self.Bind(wx.EVT_BUTTON, self.OnDelete, delete)
+        
+        vbox.Add((-1, 20))
+        vbox.Add(download)
+        vbox.Add(delete, 0, wx.TOP, 5)
+        
+        btnPanel.SetSizer(vbox)
+        hbox.Add(btnPanel, 0.6, wx.EXPAND|wx.RIGHT, 20)
+        
+        self.SetSizer(hbox)
+    
+    def OnDownload(self, event):
+        username = self.GetParent().username
+        home_dir = os.path.expanduser("~")
+        root_path = home_dir + "/" + "LocalBox"
+        user_folder = root_path + "/" + username
+        sel = self.listbox.GetSelection()
+        file_name = self.listbox.GetString(sel)
+        
+        if not (os.path.exists(user_folder)):
+            os.mkdir(user_folder)
+        file_location = user_folder + "/" + file_name
+        with open(file_location, "wb") as handle:
+            handle.write(self.GetParent().client.download_files(username, file_name).data)
+    
+    def OnDelete(self, event):
+        username = self.GetParent().username
+        sel = self.listbox.GetSelection()
+        file_name = self.listbox.GetString(sel)
+        
+        self.GetParent().client.delete_files(username, file_name)
+        self.listbox.Delete(sel)
+        self.GetParent().GetSizer().Layout()
 
 ## TODO
 # class SearchPanel(wx.Panel):
@@ -204,32 +263,46 @@ class WelcomePanel(wx.Panel):
 class ChangePassPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        hbox = wx.BoxSizer(wx.VERTICAL)
         
         sizer = wx.GridBagSizer(25,10)
         
         label0 = wx.StaticText(self,-1,label=u'Old Password', style=wx.ALIGN_CENTER)
         sizer.Add(label0, (0,0), (1,1))
         
-        text0 = wx.TextCtrl(self, -1)
-        sizer.Add(text0, (0,1), (1,1), wx.EXPAND)
+        self.text0 = wx.TextCtrl(self, -1, style=wx.TE_PASSWORD)
+        sizer.Add(self.text0, (0,1), (1,1), wx.EXPAND)
         
         label1 = wx.StaticText(self,-1,label=u'New Password', style=wx.ALIGN_CENTER)
         sizer.Add(label1, (1,0), (1,1))
         
-        text1 = wx.TextCtrl(self, -1)
-        sizer.Add(text1, (1,1), (1,1), wx.EXPAND)
+        self.text1 = wx.TextCtrl(self, -1, style=wx.TE_PASSWORD)
+        sizer.Add(self.text1, (1,1), (1,1), wx.EXPAND)
         
         button = wx.Button(self,-1,label="Submit")
         sizer.Add(button, (2,0), (1,2), wx.ALIGN_CENTER)
-        #self.Bind(wx.EVT_BUTTON, self.SubmitClick, button)
+        self.Bind(wx.EVT_BUTTON, self.SubmitClick, button)
         
         sizer.AddGrowableCol(1)
         
         hbox.Add(sizer, proportion=1, flag=wx.ALL|wx.EXPAND, border=15)
 
         self.SetSizer(hbox)
-        
+    
+    def SubmitClick(self,event):
+        respond = self.GetParent().client.change_password(self.GetParent().username, self.text0.GetValue(), self.text1.GetValue())
+        if respond == "Change password successfully":
+            self.label2 = wx.StaticText(self,-1,label='Change password successfully', style=wx.ALIGN_CENTER)
+            self.GetSizer().Add(self.label2, 1, flag=wx.ALIGN_CENTER)
+            self.GetSizer().Layout()
+            self.GetParent().Layout()
+            self.GetParent().GetSizer().Layout()
+        else:
+            self.label3 = wx.StaticText(self,-1,label='Failed!', style=wx.ALIGN_CENTER)
+            self.GetSizer().Add(self.label3, 1, flag=wx.ALIGN_CENTER)
+            self.GetSizer().Layout()
+            self.GetParent().Layout()
+            self.GetParent().GetSizer().Layout()
     
 if __name__ == "__main__":
     app = wx.App()
