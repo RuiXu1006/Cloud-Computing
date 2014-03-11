@@ -3,16 +3,20 @@
 import xmlrpclib, os, random
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
+from SocketServer import ThreadingMixIn
 import threading
 import time
+
+class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
+    pass
 
 # This dictionary is used for storing user information in data server
 user_record = dict([('rx37','xurui1006'),('zc','1234567')])
 # This path is only used for listing files and changing directories
 global current_path
 global parent_path
-current_path  = "~/CloudBox"
-parent_path  = "~"
+current_path  = "/Users/Zachary/Desktop/unixtest"
+parent_path  = "/Users/Zachary/Desktop"
 global lock
 
 # This function is used for signing up into the data server
@@ -65,6 +69,7 @@ def login_in(user_name, password):
 def list_files():
     global lock
     lock.acquire_read()
+    time.sleep(5)
     file_list = os.listdir(current_path)
     lock.release_read()
     return file_list
@@ -155,9 +160,8 @@ def delete_files(file_name):
     lock.acquire_write()
     file_location = search_files(file_name)
     os.remove(file_location)
-    lock.release()
+    lock.release_write()
     return True	
-    
     
 class ReadWriteLock:
     def __init__(self):
@@ -189,7 +193,9 @@ class ReadWriteLock:
         self._read_ready.release()
 
 lock = ReadWriteLock()
-server = SimpleXMLRPCServer(("localhost", 8000))
+#server_object = Server()
+server = ThreadXMLRPCServer(("localhost", 8000), allow_none=True)
+#server.register_instance(server_object)
 server.register_introspection_functions()
 server.register_function(sign_up, "sign_up")
 server.register_function(change_password, "change_password")
@@ -200,4 +206,5 @@ server.register_function(search_files, "search_files")
 server.register_function(download_files, "download_files")
 server.register_function(upload_files, "upload_files")
 server.register_function(delete_files, "delete_files")
+#server.register_multicall_functions()
 server.serve_forever()
