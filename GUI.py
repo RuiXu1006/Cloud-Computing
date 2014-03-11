@@ -113,8 +113,7 @@ class LoginPanel(wx.Panel):
             self.GetParent().listPanel.Show()
             self.GetParent().GetSizer().Layout()
         else:
-            self.label2 = wx.StaticText(self,-1,label='Login failed!', style=wx.ALIGN_CENTER)
-            self.GetSizer().Add(self.label2, 1, flag=wx.ALIGN_CENTER)
+            wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()
             self.GetParent().Layout()
             self.GetParent().GetSizer().Layout()
@@ -291,14 +290,12 @@ class ChangePassPanel(wx.Panel):
     def SubmitClick(self,event):
         respond = self.GetParent().client.change_password(self.GetParent().username, self.text0.GetValue(), self.text1.GetValue())
         if respond == "Change password successfully":
-            self.label2 = wx.StaticText(self,-1,label='Change password successfully', style=wx.ALIGN_CENTER)
-            self.GetSizer().Add(self.label2, 1, flag=wx.ALIGN_CENTER)
+            wx.MessageBox('Change password successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()
             self.GetParent().Layout()
             self.GetParent().GetSizer().Layout()
         else:
-            self.label3 = wx.StaticText(self,-1,label='Failed!', style=wx.ALIGN_CENTER)
-            self.GetSizer().Add(self.label3, 1, flag=wx.ALIGN_CENTER)
+            wx.MessageBox('Change password failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()
             self.GetParent().Layout()
             self.GetParent().GetSizer().Layout()
