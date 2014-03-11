@@ -40,7 +40,7 @@ class simpleapp_wx(wx.Frame):
         self.Show()
     
     def HideAll(self):
-        self.welcomePanel.Hide()
+        self.listPanel.Hide()
         self.changePassPanel.Hide()
 
 # Panel for sign up or login
