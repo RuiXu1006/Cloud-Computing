@@ -128,14 +128,14 @@ class SignupPanel(wx.Panel):
         label0 = wx.StaticText(self,-1,label=u'Username', style=wx.ALIGN_CENTER)
         sizer.Add(label0, (0,0), (1,1))
         
-        text0 = wx.TextCtrl(self, -1)
-        sizer.Add(text0, (0,1), (1,1), wx.EXPAND)
+        self.text0 = wx.TextCtrl(self, -1)
+        sizer.Add(self.text0, (0,1), (1,1), wx.EXPAND)
         
         label1 = wx.StaticText(self,-1,label=u'Password', style=wx.ALIGN_CENTER)
         sizer.Add(label1, (1,0), (1,1))
         
-        text1 = wx.TextCtrl(self, -1)
-        sizer.Add(text1, (1,1), (1,1), wx.EXPAND)
+        self.text1 = wx.TextCtrl(self, -1, style=wx.TE_PASSWORD)
+        sizer.Add(self.text1, (1,1), (1,1), wx.EXPAND)
         
         button = wx.Button(self,-1,label="Sign up")
         sizer.Add(button, (2,0), (1,2), wx.ALIGN_CENTER)
@@ -149,7 +149,16 @@ class SignupPanel(wx.Panel):
     
     # TODO: Need to define the right sign up interface
     def Sign_upClick(self, event):
-        button = wx.Button(self,-1,label="Sign up")
+        respond = self.GetParent().client.sign_up(self.text0.GetValue(), self.text1.GetValue())
+        if respond == "Sign up successfully!":
+            self.Hide()  
+            self.GetParent().initialPanel.Show()
+            self.GetParent().GetSizer().Layout()
+        else:
+            wx.MessageBox('Sign up failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
+            self.GetSizer().Layout()
+            self.GetParent().Layout()
+            self.GetParent().GetSizer().Layout()
         
 # Panel for function toolbar
 class functionMenuBar(wx.MenuBar):
@@ -207,7 +216,7 @@ class ListPanel(wx.Panel):
         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
-        filelist = self.GetParent().client.list_files(self.GetParent().username)
+        filelist = self.GetParent().client.list_files("")
         self.listbox = wx.ListBox(self, -1, choices=filelist)
         hbox.Add(self.listbox, 1, wx.EXPAND | wx.ALL, 20)
         
