@@ -70,7 +70,7 @@ def build_user_record():
 	        password = content_buffer[index]
 	        user_record[user_name] = password
 	content = f.readline()
-    print user_record 
+    #print user_record 
 
 # This function is used for signing up into the data server
 def sign_up(user_name, password):
@@ -132,7 +132,7 @@ def login_in(user_name, password):
 	    key_table[access_key] = user_name
 	    respond = "Login in successfully#" + access_key
 	    current_user = user_name
-	    print key_table
+	    #print key_table
 	    return respond
 	else:
             respond = "The password doesn't match with the given username"

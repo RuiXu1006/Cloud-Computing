@@ -13,6 +13,7 @@ class simpleapp_wx(wx.Frame):
         wx.Frame.__init__(self,parent,id,title)
         self.parent = parent
         self.username = "null"
+        self.key = "null"
         self.client = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.initialize()
 
@@ -103,7 +104,9 @@ class LoginPanel(wx.Panel):
     def Log_inClick(self,event):
         self.GetParent().username = self.text0.GetValue()
         respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
-        if respond == "Login in successfully":
+        respond_buffer = respond.split('#')
+        self.GetParent().key = respond_buffer[1]
+        if respond_buffer[0] == "Login in successfully":
             self.Hide()
             self.menubar = functionMenuBar()
             self.GetParent().SetMenuBar(self.menubar)
@@ -188,7 +191,7 @@ class functionMenuBar(wx.MenuBar):
         file_name = filePicker.GetFilename()
         with open(file_location, "rb") as handle:
             transmit_data = xmlrpclib.Binary(handle.read())
-            respond = self.GetParent().client.upload_files(self.GetParent().username, file_name, transmit_data)
+            respond = self.GetParent().client.upload_files(self.GetParent().username, file_name, transmit_data, self.GetParent().key)
         self.GetParent().listPanel.listbox.Append(file_name)
         self.GetParent().GetSizer().Layout()
     
@@ -216,7 +219,7 @@ class ListPanel(wx.Panel):
         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
-        filelist = self.GetParent().client.list_files("")
+        filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
         self.listbox = wx.ListBox(self, -1, choices=filelist)
         hbox.Add(self.listbox, 1, wx.EXPAND | wx.ALL, 20)
         
@@ -250,14 +253,14 @@ class ListPanel(wx.Panel):
             os.mkdir(user_folder)
         file_location = user_folder + "/" + file_name
         with open(file_location, "wb") as handle:
-            handle.write(self.GetParent().client.download_files(username, file_name).data)
+            handle.write(self.GetParent().client.download_files(username, file_name, self.GetParent().key).data)
     
     def OnDelete(self, event):
         username = self.GetParent().username
         sel = self.listbox.GetSelection()
         file_name = self.listbox.GetString(sel)
         
-        self.GetParent().client.delete_files(username, file_name)
+        self.GetParent().client.delete_files(username, file_name, self.GetParent().key)
         self.listbox.Delete(sel)
         self.GetParent().GetSizer().Layout()
 
