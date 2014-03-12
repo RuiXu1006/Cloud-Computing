@@ -15,10 +15,9 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 # This dictionary is used for storing user information in data server
 user_record = dict()
 # This path is only used for listing files and changing directories
-global current_path
-global parent_path
 global root_path
 global user_information
+global current_user
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
 root_path = home_dir + "/" + "CloudBox"
@@ -61,17 +60,16 @@ def build_user_record():
     print user_record 
 
 # This function is used for signing up into the data server
-def sign_up(user_name):
+def sign_up(user_name, password):
 # Firstly make sure that the user_name doesn't exist
     if user_name in user_record:
         respond = "Error: This username has been used."
 	return respond
     else:
-        initial_password = random.randint(1, 1000000)
-        initial_password = str(initial_password)
+        initial_password = str(password)
 # add the user_name and initial password into user_record
         user_record[user_name] = initial_password	
-	respond = initial_password
+	respond = "Sign up successfully!"
 	f = open(user_information, 'a')
 	content = "Username: " + user_name + "    " + "Password: " + initial_password + '\n'
 	f.write(content)
@@ -111,15 +109,13 @@ def change_password(user_name, original_password, new_password):
 
 # This function is used for logining into the date server
 def login_in(user_name, password):
-    global current_path
-    global parent_path
+    global current_user 
 # Firstly, make sure that there is user_name in the record
     if user_name in user_record.keys():
 # Then check whether the password corresponds or not
         if password == user_record[user_name]:
 	    respond = "Login in successfully"
-	    current_path = root_path + "/" + user_name
-	    parent_path = current_path
+	    current_user = user_name
 	    return respond
 	else:
             respond = "The password doesn't match with the given username"
@@ -129,6 +125,19 @@ def login_in(user_name, password):
         return respond	
 
 # This function is used for listing files in the data servers
+<<<<<<< HEAD
+def list_files(rel_path):
+    work_path = root_path + "/" + current_user + "/" + rel_path
+    file_list = os.listdir(work_path)
+    return file_list
+
+# This function is used for change directories in the data server
+def change_directory(rel_path):
+# get the work path from the information sent by client
+    work_path = root_path + "/" + current_user + rel_path
+# Firstly, check if that this path exist or not
+    if os.path.exists(work_path):
+=======
 def list_files(user_name):
     global current_path
     global lock
@@ -153,27 +162,24 @@ def change_directory(dir_name):
     else:
 # make sure that is under the current directory
         if dir_name in os.listdir(current_path):
+>>>>>>> FETCH_HEAD
 # Then make sure that is directory
-	    current_path = current_path + "/" + dir_name
-	    if os.path.isdir(current_path):
-	        parent_path = os.path.abspath(os.path.join(current_path, os.path.pardir))
-	        respond = "cd successfully"
-	        return respond	
-	    else:
-		current_path = parent_path
-	        parent_path = os.path.abspath(os.path.join(current_path, os.path.pardir))
-	        respond = "From Server: This is not a directory!"		
-		return respond
-	else:
-	    respond = "From Server - Error: The directory doesn't exist."
-            return respond
+        if os.path.isdir(work_path):
+            respond = "cd successfully"
+	    return respond	
+        else:
+	    respond = "From Server: This is not a directory!"		
+	    return respond
+    else:
+	 respond = "From Server: This directory doesn't exist!"
+         return respond
 
 # This function is used for search files in the file system
 # of data server, if there is required file, return True,
 # otherwise return false
-def search_files(user_name, file_name):
+def search_files(file_name):
 # set the path of root directory, and found flag to be false
-    work_path = root_path + "/" + user_name
+    work_path = root_path + "/" + current_user
     foundmatch = False
 # With the use of os.walk, go through all files in file system
     for root, dirs, files in os.walk(work_path):
@@ -192,29 +198,29 @@ def search_files(user_name, file_name):
 	return respond
 
 # This function is used for downloading files to client
-def download_files(user_name, file_name):
+def download_files(file_name):
 # set the path root directory, and found flag to be false
-    work_path = root_path + "/" + user_name
+    work_path = root_path + "/" + current_user
 # get the file location of give file
-    file_location = search_files(user_name, file_name)
+    file_location = search_files(file_name)
     print "From server - The download file locates at " + file_location
     with open(file_location, "rb") as handle:
         return xmlrpclib.Binary(handle.read())
 
 # This function is used for uploading files from client
-def upload_files(user_name, file_name, transmit_data):
+def upload_files(file_name, transmit_data):
 # set the root directory to store upload files, and get
 # the file location
-    work_path = root_path + "/" + user_name;
+    work_path = root_path + "/" + current_user;
     file_location = work_path + "/" + file_name
     with open(file_location, "wb") as handle:
         handle.write(transmit_data.data)
     return True
 
 # This function is used for deleting files from server
-def delete_files(user_name, file_name):
+def delete_files(file_name):
 # get the location of the file which will be deleted
-    file_location = search_files(user_name, file_name)
+    file_location = search_files(file_name)
     os.remove(file_location)
     return True	
 

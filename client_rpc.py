@@ -14,6 +14,7 @@ print "The following are available methods on data server"
 print client.system.listMethods()
 global user_name
 global work_path
+global rel_path
 print "Note: At the beginning, you should login in firstly!"
 
 while True:
@@ -50,6 +51,7 @@ while True:
 # if login in successfully, building sub-folders for this user in
 # the local folder
 	if respond == "Login in successfully":
+	    rel_path = ""
 	    user_folder = root_path + "/" + user_name
 	    if not (os.path.exists(user_folder)):
 	        os.mkdir(user_folder)
@@ -58,7 +60,7 @@ while True:
 # call search_files function in the remote server
     elif state == 1:
         file_name = raw_input("Please enter the file name you want to find:")
-        respond = client.search_files(user_name, file_name)
+        respond = client.search_files(file_name)
 # if respond is not found, print corresponding result
         if respond == "Not found":
             print "Unable to find the corresponding file."
@@ -69,12 +71,12 @@ while True:
     elif state == 2:
         file_name = raw_input("Please enter the file name you want to download:")
 # before downloading, make sure that the file exists
-        respond = client.search_files(user_name, file_name)
+        respond = client.search_files(file_name)
 # If the file exists, begin downloading
         if respond != "Not found":
             file_location = work_path + "/" + file_name
             with open(file_location, "wb") as handle:
-                handle.write(client.download_files(user_name, file_name).data)
+                handle.write(client.download_files(file_name).data)
 	    print "From client - Downloading file successfully"
 # If the file doesn't exist, show the failure of downloading
         else:
@@ -88,7 +90,7 @@ while True:
 # open the file, reand the content and send these content
         with open(file_location, "rb") as handle:
             transmit_data = xmlrpclib.Binary(handle.read())
-            respond = client.upload_files(user_name, file_name, transmit_data)
+            respond = client.upload_files(file_name, transmit_data)
 # Based on the respond to output corresponding information
         if respond:
             print "From client - Uploading file successfully"
@@ -100,10 +102,10 @@ while True:
 # enter the file name which will be deleted
         file_name = raw_input("Please enter the file name you want to delete:")
 # make sure that the file does exist
-        respond = client.search_files(user_name, file_name)
+        respond = client.search_files(file_name)
 # if the file exist, delete it
         if respond != "Not found":
-            if client.delete_files(user_name, file_name):
+            if client.delete_files(file_name):
 	        print "From client - Delete file successfully"
 # otherwise, print the error information
         else:
@@ -113,7 +115,8 @@ while True:
     elif state == 5:
         while True:
             user_name = raw_input("Please enter the username you want:")
-	    initial_password = client.sign_up(user_name)
+	    password  = raw_input("Please enter the password you want:")
+	    initial_password = client.sign_up(user_name, password)
 	    if initial_password != "Error: This username has been used.":
 	        # build local folder for new user
 	        new_dir = root_path + "/" + user_name;
@@ -141,15 +144,33 @@ while True:
 
 # call list_files function to get the list of files under current directory
     elif state == 7:
-        file_list = client.list_files(user_name)
+        file_list = client.list_files(rel_path)
 	for files in file_list:
 	    print files
 
 # call change_directory function
     elif state == 8:
+# get the directory name from the input of users
         dir_name = raw_input("Change directory to: ")
+	rel_path_buffer = dir_name
+# If users need to go back to parent directory
+	if dir_name == "..":
+# check whether it reaches the root of user directory or not
+	    if rel_path == "":
+	        dir_name = "/"
+		rel_path_buffer = ""
+	    else:
+                dir_name = "/" + rel_path
+		dir_name = os.path.abspath(os.path.join(dir_name, os.pardir))
+	        if dir_name == "/":
+		    rel_path_buffer = ""
+        else:
+	    dir_name = "/" + dir_name
 	respond = client.change_directory(dir_name)
-	print respond
+# if cd successfully, update rel_path parameter
+        if respond == "cd successfully":
+            rel_path = rel_path_buffer
+        print respond	    
 
 # if the function is unrecognized, print Error information
     else:
