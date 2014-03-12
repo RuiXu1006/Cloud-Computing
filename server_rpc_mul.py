@@ -7,8 +7,11 @@ from SocketServer import ThreadingMixIn
 import threading
 import time
 
+id = 1;
 class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
+    self.id = id;
+    id++;
 
 # This dictionary is used for storing user information in data server
 user_record = dict([('rx37','xurui1006'),('zc','1234567')])
@@ -135,7 +138,7 @@ def download_files(file_name):
     path = "/Users/Zachary/Desktop/unixtest"
 # get the file location of give file
     file_location = search_files(file_name)
-    print "From server - The download file locates at " + file_location
+    print "From server - The download file locates at " + file_location + "haha"
     time.sleep(5)
     with open(file_location, "rb") as handle:
         res = xmlrpclib.Binary(handle.read())

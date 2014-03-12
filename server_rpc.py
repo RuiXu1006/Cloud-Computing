@@ -4,6 +4,13 @@ import xmlrpclib, os, random
 import re
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
+from SocketServer import ThreadingMixIn
+import threading
+import time
+
+
+class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
+    pass
 
 # This dictionary is used for storing user information in data server
 user_record = dict()
@@ -124,13 +131,18 @@ def login_in(user_name, password):
 # This function is used for listing files in the data servers
 def list_files(user_name):
     global current_path
+    global lock
+    lock.acquire_read()
     file_list = os.listdir(current_path)
+    lock.release_read()
     return file_list
 
 # This function is used for change directories in the data server
 def change_directory(dir_name):
     global current_path
     global parent_path
+    global lock
+    lock.acquire_read()
 # If the dir_name is .., it means that it will return to the parent directory
     if dir_name == "..":
         current_path = parent_path
@@ -206,7 +218,40 @@ def delete_files(user_name, file_name):
     os.remove(file_location)
     return True	
 
-server = SimpleXMLRPCServer(("localhost", 8000))
+
+
+class ReadWriteLock:
+    def __init__(self):
+        self._read_ready = threading.Condition()
+        self._readers = 0
+        
+    def acquire_read(self):
+        self._read_ready.acquire()
+        try:
+            self._readers+=1
+        finally:
+            self._read_ready.release()
+    
+    def release_read(self):
+        self._read_ready.acquire()
+        try:
+            self._readers-=1
+            if not self._readers:
+                self._read_ready.notifyAll()
+        finally:
+            self._read_ready.release()
+            
+    def acquire_write(self):
+        self._read_ready.acquire()
+        while self._readers:
+            self._read_ready.wait()
+    
+    def release_write(self):
+        self._read_ready.release()
+
+lock = ReadWriteLock()
+#server_object = Server()
+server = ThreadXMLRPCServer(("localhost", 8000), allow_none=True)
 build_up(root_path)
 build_user_record()
 server.register_introspection_functions()
