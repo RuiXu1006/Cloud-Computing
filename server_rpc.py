@@ -14,14 +14,27 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 
 # This dictionary is used for storing user information in data server
 user_record = dict()
+# This dictionary is used for access key for different users
+key_table = dict()
 # This path is only used for listing files and changing directories
 global root_path
 global user_information
-global current_user
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
 root_path = home_dir + "/" + "CloudBox"
 user_information = root_path + "/" + "User_information.txt"
+
+# This function is used for testify whether the user has the access to
+# use some specific functions
+def security_check(user_name, key):
+    foundmatch = False
+    for key in key_table:
+        if key_table[key] == user_name:
+	    return user_name
+    if foundmatch:
+        result = "denied access"
+        return result
+     
 
 # This function is used for server to build directories at the beginning
 def build_up(root_path):
@@ -114,8 +127,12 @@ def login_in(user_name, password):
     if user_name in user_record.keys():
 # Then check whether the password corresponds or not
         if password == user_record[user_name]:
-	    respond = "Login in successfully"
+	    access_key = random.randint(0, 10000000)
+	    access_key = str(access_key)
+	    key_table[access_key] = user_name
+	    respond = "Login in successfully#" + access_key
 	    current_user = user_name
+	    print key_table
 	    return respond
 	else:
             respond = "The password doesn't match with the given username"
@@ -126,13 +143,23 @@ def login_in(user_name, password):
 
 # This function is used for listing files in the data servers
 
-def list_files(rel_path):
+def list_files(user_name,rel_path,key):
+    if security_check(user_name, key) == "denied access":
+	respond = "You have no right to use this function"
+	return respond
+    else:
+	current_user = security_check(user_name, key)
     work_path = root_path + "/" + current_user + "/" + rel_path
     file_list = os.listdir(work_path)
     return file_list
 
 # This function is used for change directories in the data server
-def change_directory(rel_path):
+def change_directory(user_name,rel_path,key):
+    if security_check(user_name, key) == "denied access":
+	respond = "You have no right to use this function"
+	return respond
+    else:
+	current_user = security_check(user_name, key)
 # get the work path from the information sent by client
     work_path = root_path + "/" + current_user + rel_path
 # Firstly, check if that this path exist or not
@@ -151,52 +178,72 @@ def change_directory(rel_path):
 # This function is used for search files in the file system
 # of data server, if there is required file, return True,
 # otherwise return false
-def search_files(file_name):
-# set the path of root directory, and found flag to be false
-    work_path = root_path + "/" + current_user
-    foundmatch = False
-# With the use of os.walk, go through all files in file system
-    for root, dirs, files in os.walk(work_path):
-# If file found, set found flag, and get the location of file
-        if file_name in files:
-	    file_location = os.path.join(root, file_name)
-	    foundmatch = True
-	    break
-# If flag is true, found file and return the location
-    if foundmatch:
-        respond = file_location
+def search_files(user_name, file_name, key):
+    if security_check(user_name, key) == "denied access":
+	respond = "You have no right to use this function"
 	return respond
-# If flag is false, return false information
     else:
-        respond = "Not found"
-	return respond
+	current_user = security_check(user_name, key)
+# set the path of root directory, and found flag to be false
+        work_path = root_path + "/" + current_user
+        foundmatch = False
+# With the use of os.walk, go through all files in file system
+        for root, dirs, files in os.walk(work_path):
+# If file found, set found flag, and get the location of file
+            if file_name in files:
+	        file_location = os.path.join(root, file_name)
+	        foundmatch = True
+	        break
+# If flag is true, found file and return the location
+        if foundmatch:
+            respond = file_location
+	    return respond
+# If flag is false, return false information
+        else:
+            respond = "Not found"
+	    return respond
 
 # This function is used for downloading files to client
-def download_files(file_name):
+def download_files(user_name, file_name, key):
+    if security_check(user_name, key) == "denied access":
+	respond = "You have no right to use this function"
+	return respond
+    else:
+	current_user =  security_check(user_name, key)
 # set the path root directory, and found flag to be false
-    work_path = root_path + "/" + current_user
+        work_path = root_path + "/" + current_user
 # get the file location of give file
-    file_location = search_files(file_name)
-    print "From server - The download file locates at " + file_location
-    with open(file_location, "rb") as handle:
-        return xmlrpclib.Binary(handle.read())
+        file_location = search_files(user_name, file_name, key)
+        print "From server - The download file locates at " + file_location
+        with open(file_location, "rb") as handle:
+            return xmlrpclib.Binary(handle.read())
 
 # This function is used for uploading files from client
-def upload_files(file_name, transmit_data):
+def upload_files(user_name,file_name, transmit_data, key):
+    if security_check(user_name, key) == "denied access":
+	respond = "You have no right to use this function"
+	return respond
+    else:
+	current_user = security_check(user_name, key)
 # set the root directory to store upload files, and get
 # the file location
-    work_path = root_path + "/" + current_user;
-    file_location = work_path + "/" + file_name
-    with open(file_location, "wb") as handle:
-        handle.write(transmit_data.data)
-    return True
+        work_path = root_path + "/" + current_user;
+        file_location = work_path + "/" + file_name
+        with open(file_location, "wb") as handle:
+            handle.write(transmit_data.data)
+        return True
 
 # This function is used for deleting files from server
-def delete_files(file_name):
+def delete_files(user_name, file_name, key):
+    if security_check(user_name, key) == "denied access":
+	respond = "You have no right to use this function"
+	return respond
+    else:
+	current_user = security_check(user_name, key)
 # get the location of the file which will be deleted
-    file_location = search_files(file_name)
-    os.remove(file_location)
-    return True	
+        file_location = search_files(user_name, file_name, key)
+        os.remove(file_location)
+        return True	
 
 
 

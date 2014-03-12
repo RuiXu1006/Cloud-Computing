@@ -15,6 +15,7 @@ print client.system.listMethods()
 global user_name
 global work_path
 global rel_path
+global work_key
 print "Note: At the beginning, you should login in firstly!"
 
 while True:
@@ -44,14 +45,19 @@ while True:
 
 # call login_in function to login into the remote server
     if state == 0:
+        global user_name
         user_name = raw_input("Please enter your username:")
         password = raw_input("Please enter your password:")
         respond = client.login_in(user_name, password)
+	respond_buffer = respond.split('#')
+        respond = respond_buffer[0]
         print "From client - " + respond
 # if login in successfully, building sub-folders for this user in
 # the local folder
 	if respond == "Login in successfully":
 	    rel_path = ""
+	    work_key = respond_buffer[1]
+	    print "From client - the key is " + work_key
 	    user_folder = root_path + "/" + user_name
 	    if not (os.path.exists(user_folder)):
 	        os.mkdir(user_folder)
@@ -59,8 +65,9 @@ while True:
 
 # call search_files function in the remote server
     elif state == 1:
+        global user_name
         file_name = raw_input("Please enter the file name you want to find:")
-        respond = client.search_files(file_name)
+        respond = client.search_files(user_name,file_name,work_key)
 # if respond is not found, print corresponding result
         if respond == "Not found":
             print "Unable to find the corresponding file."
@@ -69,14 +76,15 @@ while True:
 
 # call download_files function in the remote server
     elif state == 2:
+        global user_name
         file_name = raw_input("Please enter the file name you want to download:")
 # before downloading, make sure that the file exists
-        respond = client.search_files(file_name)
+        respond = client.search_files(user_name, file_name, work_key)
 # If the file exists, begin downloading
         if respond != "Not found":
             file_location = work_path + "/" + file_name
             with open(file_location, "wb") as handle:
-                handle.write(client.download_files(file_name).data)
+                handle.write(client.download_files(user_name,file_name,work_key).data)
 	    print "From client - Downloading file successfully"
 # If the file doesn't exist, show the failure of downloading
         else:
@@ -84,13 +92,14 @@ while True:
 
 # call upload_file function to upload files to server
     elif state == 3:
+        global user_name
 # input the file name which will be uploaded
         file_name = raw_input("Please enter the file name you want to upload:")
         file_location = work_path + "/" + file_name
 # open the file, reand the content and send these content
         with open(file_location, "rb") as handle:
             transmit_data = xmlrpclib.Binary(handle.read())
-            respond = client.upload_files(file_name, transmit_data)
+            respond = client.upload_files(user_name,file_name,transmit_data,work_key)
 # Based on the respond to output corresponding information
         if respond:
             print "From client - Uploading file successfully"
@@ -99,13 +108,14 @@ while True:
 
 # call delete_file function to delete files in the data server
     elif state == 4:
+        global user_name
 # enter the file name which will be deleted
         file_name = raw_input("Please enter the file name you want to delete:")
 # make sure that the file does exist
-        respond = client.search_files(file_name)
+        respond = client.search_files(user_name,file_name,work_key)
 # if the file exist, delete it
         if respond != "Not found":
-            if client.delete_files(file_name):
+            if client.delete_files(user_name,file_name,work_key):
 	        print "From client - Delete file successfully"
 # otherwise, print the error information
         else:
@@ -144,12 +154,14 @@ while True:
 
 # call list_files function to get the list of files under current directory
     elif state == 7:
-        file_list = client.list_files(rel_path)
+        global user_name
+        file_list = client.list_files(user_name,rel_path,work_key)
 	for files in file_list:
 	    print files
 
 # call change_directory function
     elif state == 8:
+        global user_name
 # get the directory name from the input of users
         dir_name = raw_input("Change directory to: ")
 	rel_path_buffer = dir_name
@@ -166,7 +178,7 @@ while True:
 		    rel_path_buffer = ""
         else:
 	    dir_name = "/" + dir_name
-	respond = client.change_directory(dir_name)
+	respond = client.change_directory(user_name,dir_name,work_key)
 # if cd successfully, update rel_path parameter
         if respond == "cd successfully":
             rel_path = rel_path_buffer
