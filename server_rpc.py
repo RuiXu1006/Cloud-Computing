@@ -125,7 +125,7 @@ def login_in(user_name, password):
         return respond	
 
 # This function is used for listing files in the data servers
-<<<<<<< HEAD
+
 def list_files(rel_path):
     work_path = root_path + "/" + current_user + "/" + rel_path
     file_list = os.listdir(work_path)
@@ -137,32 +137,6 @@ def change_directory(rel_path):
     work_path = root_path + "/" + current_user + rel_path
 # Firstly, check if that this path exist or not
     if os.path.exists(work_path):
-=======
-def list_files(user_name):
-    global current_path
-    global lock
-    lock.acquire_read()
-    file_list = os.listdir(current_path)
-    lock.release_read()
-    return file_list
-
-# This function is used for change directories in the data server
-def change_directory(dir_name):
-    global current_path
-    global parent_path
-    global lock
-    lock.acquire_read()
-# If the dir_name is .., it means that it will return to the parent directory
-    if dir_name == "..":
-        current_path = parent_path
-	parent_path = os.path.abspath(os.path.join(current_path, os.path.pardir))
-	respond = "cd successfully"
-	return respond 
-# otherwise change to other directories
-    else:
-# make sure that is under the current directory
-        if dir_name in os.listdir(current_path):
->>>>>>> FETCH_HEAD
 # Then make sure that is directory
         if os.path.isdir(work_path):
             respond = "cd successfully"
