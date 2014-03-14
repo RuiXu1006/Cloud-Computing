@@ -105,8 +105,8 @@ class LoginPanel(wx.Panel):
         self.GetParent().username = self.text0.GetValue()
         respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
         respond_buffer = respond.split('#')
-        self.GetParent().key = respond_buffer[1]
         if respond_buffer[0] == "Login in successfully":
+            self.GetParent().key = respond_buffer[1]
             self.Hide()
             self.menubar = functionMenuBar()
             self.GetParent().SetMenuBar(self.menubar)
