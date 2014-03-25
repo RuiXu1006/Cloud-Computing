@@ -13,7 +13,7 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 # total number of server
-serverNum = 3
+serverNum = 9
 
 # This dictionary is used for storing user information in data server
 user_record = dict()

@@ -14,7 +14,7 @@ if not (os.path.exists(root_path)):
 
 
 # the total number of server
-svrNum = 3
+svrNum = 9
 
 # connect to the remote server of RPC
 # this is connect to the master server to determine which server to serve
@@ -143,6 +143,7 @@ while True:
 # call sign_up function to sign up in the data server
     elif state == 5:
         randNum = random.randint(0,svrNum-1)
+        print "the randnum is" + str(randNum)
         client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
         while True:
             user_name = raw_input("Please enter the username you want:")
@@ -151,7 +152,8 @@ while True:
             if initial_password != "Error: This username has been used.":
 	        # build local folder for new user
                 new_dir = root_path + "/" + user_name;
-                os.mkdir(new_dir)
+                if not (os.path.exists(new_dir)):
+                    os.mkdir(new_dir)
                 f = open(root_path+"/"+user_name+"/svrName", 'w')
                 content = "800"+str(randNum)
                 f.write(content)
