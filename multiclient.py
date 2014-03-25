@@ -54,10 +54,11 @@ class ClientClass(Thread):
             print "From Server - Error: This username has been used"
         print "From Server: Your initial password is " + self.initial_password
         print "From Client - Sign up successfully"
+        open(home_dir+"/CloudBox/"+user_name+"/b", 'a').close()
         open(home_dir+"/CloudBox/"+user_name+"/a", 'a').close()
-        print self.new_dir + "/" +"a"
+        #print self.new_dir + "/" +"a"
         self.password = str(self.pwd)
-        print self.password
+        #print self.password
 
 # check the login_in method
         #user_name = users[id]
@@ -125,6 +126,6 @@ class ClientClass(Thread):
         if (count >= 100):
             print "Cool! Everything works well!"
 
-for i in range(100):
+for i in range(50):
     c = ClientClass(i);
     c.start()

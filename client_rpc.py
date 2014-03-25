@@ -8,10 +8,21 @@ root_path = home_dir + "/" + "LocalBox"
 if not (os.path.exists(root_path)):
     os.mkdir(root_path)
 
+
+# find which server to put data
+
+
+# the total number of server
+serverNum = 3
+
 # connect to the remote server of RPC
+# this is connect to the master server to determine which server to serve
+"""
 client = xmlrpclib.ServerProxy("http://localhost:8000/")
 print "The following are available methods on data server"
 print client.system.listMethods()
+"""
+global client
 global user_name
 global work_path
 global rel_path
@@ -46,8 +57,13 @@ while True:
 # call login_in function to login into the remote server
     if state == 0:
         global user_name
+        
         user_name = raw_input("Please enter your username:")
         password = raw_input("Please enter your password:")
+        f = open(root_path+"/"+user_name+"/svrName", 'r')
+        svrName = f.readline()
+        client = xmlrpclib.ServerProxy("http://localhost:"+svrName+"/")
+        
         respond = client.login_in(user_name, password)
 	respond_buffer = respond.split('#')
         respond = respond_buffer[0]
@@ -109,6 +125,7 @@ while True:
 # call delete_file function to delete files in the data server
     elif state == 4:
         global user_name
+        
 # enter the file name which will be deleted
         file_name = raw_input("Please enter the file name you want to delete:")
 # make sure that the file does exist
@@ -123,6 +140,7 @@ while True:
 
 # call sign_up function to sign up in the data server
     elif state == 5:
+        client = xmlrpclib.ServerProxy("http://localhost:8000/")
         while True:
             user_name = raw_input("Please enter the username you want:")
 	    password  = raw_input("Please enter the password you want:")
@@ -131,6 +149,7 @@ while True:
 	        # build local folder for new user
 	        new_dir = root_path + "/" + user_name;
 		os.mkdir(new_dir)
+        
 	        break
 	    else:
 	        print "From Server - Error: This username has been used"
