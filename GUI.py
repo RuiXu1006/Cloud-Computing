@@ -8,13 +8,18 @@ try:
 except ImportError:
     raise ImportError,"The wxPython module is required to run this program"
 
+global user_information
+
+home_dir = os.path.expanduser("~")
+root_path = home_dir + "/" + "LocalBox"
+user_information = root_path + "/" + "User_information.txt"
+
 class simpleapp_wx(wx.Frame):
     def __init__(self,parent,id,title):
         wx.Frame.__init__(self,parent,id,title)
         self.parent = parent
         self.username = "null"
         self.key = "null"
-        self.client = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.initialize()
 
     def initialize(self):
@@ -64,6 +69,8 @@ class InitialPanel(wx.Panel):
 
     def Sign_upClick(self,event):
         self.Hide()
+        # Talk to the master server when signup
+        self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.GetParent().signupPanel.Show()
         self.GetParent().GetSizer().Layout()
         
@@ -102,6 +109,9 @@ class LoginPanel(wx.Panel):
         self.SetSizer(hbox)
     
     def Log_inClick(self,event):
+        # Login to the right server
+        # Issue: what if user change computer to login?
+        self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.GetParent().username = self.text0.GetValue()
         respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
         respond_buffer = respond.split('#')
@@ -152,11 +162,18 @@ class SignupPanel(wx.Panel):
     
     # TODO: Need to define the right sign up interface
     def Sign_upClick(self, event):
-        respond = self.GetParent().client.sign_up(self.text0.GetValue(), self.text1.GetValue())
+        username = self.text0.GetValue()
+        respond = self.GetParent().client.sign_up(username, self.text1.GetValue())
+        # return the server address
+        server = "TODO"
         if respond == "Sign up successfully!":
             self.Hide()  
             self.GetParent().initialPanel.Show()
             self.GetParent().GetSizer().Layout()
+            # Add the user-server information
+            f = open(user_information, 'a+')
+            content = "Username: " + username + "    " + "Server: " + server + '\n'
+            f.write(content)           
         else:
             wx.MessageBox('Sign up failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()
