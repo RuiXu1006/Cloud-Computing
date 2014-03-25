@@ -88,11 +88,15 @@ class MultiServer(Thread):
     # create root directory for servers
         if not (os.path.exists(root_path)):
             os.mkdir(root_path)
+        if not (os.path.exists(root_path+"/"+str(self.id))):
+            os.mkdir(root_path+"/"+str(self.id))
     # Then, based on the user_record, tests whether each user has its own directory
     # or not, if not, building corresponding folders
         user_folder = root_path + "/default"
+        """" the creation of user fold should not build in this function
         for user_name in user_record:
-            user_folder = root_path + "/" + user_name;
+            user_folder = root_path + "/" +str(self.id) +"/" + user_name;
+        """
         if not (os.path.exists(user_folder)):
             os.mkdir(user_folder)
         lock.release_write()
@@ -126,6 +130,7 @@ class MultiServer(Thread):
     # This function is used for signing up into the data server
     def sign_up(self, user_name, password):
     # Firstly make sure that the user_name doesn't exist
+        print "here"
         global lock
         lock.acquire_write()
         if user_name in user_record:
@@ -139,7 +144,7 @@ class MultiServer(Thread):
             content = "Username: " + user_name + "    " + "Password: " + initial_password + '\n'
             f.write(content)
     # build new directory file for new users
-            new_dir = root_path + "/" + user_name
+            new_dir = root_path + "/" +str(self.id) +"/"+ user_name
             os.mkdir(new_dir)
         lock.release_write()
         return respond
@@ -204,7 +209,7 @@ class MultiServer(Thread):
             respond = "You have no right to use this function"
         else:
             current_user = self.security_check(user_name, key)
-            work_path = root_path + "/" + current_user + "/" + rel_path
+            work_path = root_path + "/" +str(self.id) +"/" + current_user + "/" + rel_path
             file_list = os.listdir(work_path)
             respond = file_list
         lock.release_write()
@@ -220,7 +225,7 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
     # get the work path from the information sent by client
-            work_path = root_path + "/" + current_user + rel_path
+            work_path = root_path + "/" + str(self.id) +"/" + current_user + rel_path
     # Firstly, check if that this path exist or not
         if os.path.exists(work_path):
     # Then make sure that is directory
@@ -244,7 +249,7 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
     # set the path of root directory, and found flag to be false
-            work_path = root_path + "/" + current_user
+            work_path = root_path + "/" + str(self.id) +"/" + current_user
             foundmatch = False
     # With the use of os.walk, go through all files in file system
             for root, dirs, files in os.walk(work_path):
@@ -272,9 +277,9 @@ class MultiServer(Thread):
         else:
             current_user =  self.security_check(user_name, key)
     # set the path root directory, and found flag to be false
-            work_path = root_path + "/" + current_user
+            work_path = root_path + "/" + str(self.id) +"/" + current_user
     # get the file location of give file
-            file_location = search_files(user_name, file_name, key)
+            file_location = self.search_files(user_name, file_name, key)
             print "From server - The download file locates at " + file_location
             with open(file_location, "rb") as handle:
                 respond = xmlrpclib.Binary(handle.read())
@@ -293,7 +298,7 @@ class MultiServer(Thread):
             current_user = self.security_check(user_name, key)
     # set the root directory to store upload files, and get
     # the file location
-            work_path = root_path + "/" + current_user;
+            work_path = root_path + "/" + str(self.id) +"/" +current_user;
             file_location = work_path + "/" + file_name
             with open(file_location, "wb") as handle:
                 handle.write(transmit_data.data)
@@ -310,7 +315,7 @@ class MultiServer(Thread):
             lock.acquire_write()
             current_user = self.security_check(user_name, key)
     # get the location of the file which will be deleted
-            file_location = search_files(user_name, file_name, key)
+            file_location = self.search_files(user_name, file_name, key)
             os.remove(file_location)
             lock.release_write()
             return True

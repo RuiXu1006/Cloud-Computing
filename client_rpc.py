@@ -1,5 +1,6 @@
 import xmlrpclib
 import os
+import random
 
 # Get the home directory
 home_dir = os.path.expanduser("~")
@@ -13,7 +14,7 @@ if not (os.path.exists(root_path)):
 
 
 # the total number of server
-serverNum = 3
+svrNum = 3
 
 # connect to the remote server of RPC
 # this is connect to the master server to determine which server to serve
@@ -77,6 +78,7 @@ while True:
 	    user_folder = root_path + "/" + user_name
 	    if not (os.path.exists(user_folder)):
 	        os.mkdir(user_folder)
+
 	    work_path = user_folder
 
 # call search_files function in the remote server
@@ -140,21 +142,25 @@ while True:
 
 # call sign_up function to sign up in the data server
     elif state == 5:
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        randNum = random.randint(0,svrNum-1)
+        client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
         while True:
             user_name = raw_input("Please enter the username you want:")
-	    password  = raw_input("Please enter the password you want:")
-	    initial_password = client.sign_up(user_name, password)
-	    if initial_password != "Error: This username has been used.":
+            password  = raw_input("Please enter the password you want:")
+            initial_password = client.sign_up(user_name, password)
+            if initial_password != "Error: This username has been used.":
 	        # build local folder for new user
-	        new_dir = root_path + "/" + user_name;
-		os.mkdir(new_dir)
-        
-	        break
-	    else:
-	        print "From Server - Error: This username has been used"
-	print "From Server: Your initial password is " + initial_password
-	print "From Client - Sign up successfully"
+                new_dir = root_path + "/" + user_name;
+                os.mkdir(new_dir)
+                f = open(root_path+"/"+user_name+"/svrName", 'w')
+                content = "800"+str(randNum)
+                f.write(content)
+                f.close()
+                break
+            else:
+                print "From Server - Error: This username has been used"
+        print "From Server: Your initial password is " + initial_password
+        print "From Client - Sign up successfully"
 
 # call change_password function to change password
     elif state == 6:
