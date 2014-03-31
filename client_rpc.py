@@ -61,25 +61,33 @@ while True:
         
         user_name = raw_input("Please enter your username:")
         password = raw_input("Please enter your password:")
-        f = open(root_path+"/"+user_name+"/svrName", 'r')
-        svrName = f.readline()
-        client = xmlrpclib.ServerProxy("http://localhost:"+svrName+"/")
+        svrName = 0
+        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        if (os.path.exists(root_path+"/"+user_name+"/svrName")):
+            f = open(root_path+"/"+user_name+"/svrName", 'r')
+            svrName = f.readline()
+            client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
         
-        respond = client.login_in(user_name, password)
-	respond_buffer = respond.split('#')
+        respond, svrName = client.login_in(user_name, password)
+        respond_buffer = respond.split('#')
         respond = respond_buffer[0]
+        print svrName
         print "From client - " + respond
 # if login in successfully, building sub-folders for this user in
 # the local folder
-	if respond == "Login in successfully":
-	    rel_path = ""
-	    work_key = respond_buffer[1]
-	    print "From client - the key is " + work_key
-	    user_folder = root_path + "/" + user_name
-	    if not (os.path.exists(user_folder)):
-	        os.mkdir(user_folder)
+        if respond == "Login in successfully":
+            client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
+            rel_path = ""
+            work_key = respond_buffer[1]
+            print "From client - the key is " + work_key
+            user_folder = root_path + "/" + user_name
+            if not (os.path.exists(user_folder)):
+                os.mkdir(user_folder)
+            f = open(root_path+"/"+user_name+"/svrName", 'w')
+            f.write(svrName)
+            f.close()
 
-	    work_path = user_folder
+            work_path = user_folder
 
 # call search_files function in the remote server
     elif state == 1:
@@ -142,20 +150,25 @@ while True:
 
 # call sign_up function to sign up in the data server
     elif state == 5:
-        randNum = random.randint(0,svrNum-1)
-        print "the randnum is" + str(randNum)
-        client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
+        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        
+        
+        randNum = random.randint(1,svrNum-1)
+#         print "the randnum is" + str(randNum)
+#         client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
+
         while True:
             user_name = raw_input("Please enter the username you want:")
             password  = raw_input("Please enter the password you want:")
-            initial_password = client.sign_up(user_name, password)
+            initial_password, svrName = client.sign_up(user_name, password)
             if initial_password != "Error: This username has been used.":
 	        # build local folder for new user
+                
                 new_dir = root_path + "/" + user_name;
                 if not (os.path.exists(new_dir)):
                     os.mkdir(new_dir)
                 f = open(root_path+"/"+user_name+"/svrName", 'w')
-                content = "800"+str(randNum)
+                content = str(svrName)
                 f.write(content)
                 f.close()
                 break

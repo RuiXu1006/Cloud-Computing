@@ -8,6 +8,8 @@ from SocketServer import ThreadingMixIn
 import threading
 import time
 from threading import Thread, Lock, Condition
+import random
+from os.path import join, getsize
 
 class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
@@ -19,6 +21,8 @@ serverNum = 9
 user_record = dict()
 # This dictionary is used for access key for different users
 key_table = dict()
+# this dictionary is used for serverID for each user
+server_record = dict()
 # This path is only used for listing files and changing directories
 global root_path
 global user_information
@@ -123,31 +127,60 @@ class MultiServer(Thread):
                 if ( index > 0 ) and ( content_buffer[index-1] == "Password"):
                     password = content_buffer[index]
                     user_record[user_name] = password
+                if ( index > 0 ) and ( content_buffer[index-1] == "ServerID"):
+                    server_record[user_name] = content_buffer[index]
             content = f.readline()
         #print user_record 
         lock.release_write()
 
+    
+    def getdirsize(self,dir):  
+       size = 0L  
+       for root, dirs, files in os.walk(dir):  
+          size += sum([getsize(join(root, name)) for name in files])  
+       return size
+    
+    def select_server(self):
+        minNum = 100000000000L
+        svrName = 1
+        for item in range(1,serverNum):
+            temp = self.getdirsize(root_path+"/"+str(item))
+            print 'There are %.3f' % (temp), 'bytes in the %d folder' %(item)
+            if (temp < minNum):
+                minNum = temp
+                svrName = item
+        print svrName
+        return svrName
+
     # This function is used for signing up into the data server
+    # this method is only used by master server 
     def sign_up(self, user_name, password):
     # Firstly make sure that the user_name doesn't exist
         print "here"
-        global lock
+        global lock, serverNum
         lock.acquire_write()
+        svrName = 0
         if user_name in user_record:
             respond = "Error: This username has been used."
         else:
             initial_password = str(password)
     # add the user_name and initial password into user_record
-            user_record[user_name] = initial_password	
+            user_record[user_name] = initial_password
             respond = "Sign up successfully!"
+            svrName = "800" + str(self.select_server())
+            
+            server_record[user_name] = svrName	
             f = open(user_information, 'a')
-            content = "Username: " + user_name + "    " + "Password: " + initial_password + '\n'
+            content = "Username: " + user_name + "    " + "Password: " + initial_password + "    ServerID: " + str(svrName) + '\n'
             f.write(content)
+            f.close()
+            #print "haha"
     # build new directory file for new users
-            new_dir = root_path + "/" +str(self.id) +"/"+ user_name
+            new_dir = root_path + "/" +str(svrName)[len(svrName)-1] +"/"+ user_name
             os.mkdir(new_dir)
+            
         lock.release_write()
-        return respond
+        return respond, svrName
 
     # This function is used for changing the password for clients
     # The client has to provide original password, and new password
@@ -192,13 +225,14 @@ class MultiServer(Thread):
                 key_table[access_key] = user_name
                 respond = "Login in successfully#" + access_key
                 current_user = user_name
+                svrName = server_record[user_name]
     	    #print key_table
             else:
                 respond = "The password doesn't match with the given username"
         else:
             respond = "The username doesn't exist"
         lock.release_write()
-        return respond
+        return respond, svrName
 
     # This function is used for listing files in the data servers
 
