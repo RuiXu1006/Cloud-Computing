@@ -70,7 +70,7 @@ class InitialPanel(wx.Panel):
     def Sign_upClick(self,event):
         self.Hide()
         # Talk to the master server when signup
-        self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.GetParent().signupPanel.Show()
         self.GetParent().GetSizer().Layout()
         
@@ -111,25 +111,50 @@ class LoginPanel(wx.Panel):
     def Log_inClick(self,event):
         # Login to the right server
         # Issue: what if user change computer to login?
-        self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:8000/")
         self.GetParent().username = self.text0.GetValue()
-        respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
-        respond_buffer = respond.split('#')
-        if respond_buffer[0] == "Login in successfully":
-            self.GetParent().key = respond_buffer[1]
-            self.Hide()
-            self.menubar = functionMenuBar()
-            self.GetParent().SetMenuBar(self.menubar)
-            self.GetParent().Layout()
-            self.GetParent().listPanel = ListPanel(self.GetParent())
-            self.GetParent().GetSizer().Add(self.GetParent().listPanel, 1, flag= wx.ALIGN_TOP|wx.ALL, border=10)   
-            self.GetParent().listPanel.Show()
-            self.GetParent().GetSizer().Layout()
+        f = open(user_information, 'r+')
+        lines = f.readlines()
+        # Flag to indicate whether the user record exists locally
+        flag = 0
+        for line in lines:
+            con_buffer = re.split('\W+', line)
+            if con_buffer[1] == self.GetParent().username:
+                srvName = con_buffer[3]
+                flag = 1
+        
+        if flag == 1:
+            self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:800"+srvName+"/")
         else:
-            wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
-            self.GetSizer().Layout()
-            self.GetParent().Layout()
-            self.GetParent().GetSizer().Layout()
+            self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            respond, srvName = self.GetParent().master.search(self.GetParent().username)
+            if respond == "TODO":
+                self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:800"+srvName+"/")
+                flag = 1
+            else:
+                wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
+                self.GetSizer().Layout()
+                self.GetParent().Layout()
+                self.GetParent().GetSizer().Layout()
+        
+        # Login to the corresponding server
+        if flag == 1:    
+            respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
+            respond_buffer = respond.split('#')
+            if respond_buffer[0] == "Login in successfully":
+                self.GetParent().key = respond_buffer[1]
+                self.Hide()
+                self.menubar = functionMenuBar()
+                self.GetParent().SetMenuBar(self.menubar)
+                self.GetParent().Layout()
+                self.GetParent().listPanel = ListPanel(self.GetParent())
+                self.GetParent().GetSizer().Add(self.GetParent().listPanel, 1, flag= wx.ALIGN_TOP|wx.ALL, border=10)   
+                self.GetParent().listPanel.Show()
+                self.GetParent().GetSizer().Layout()
+            else:
+                wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
+                self.GetSizer().Layout()
+                self.GetParent().Layout()
+                self.GetParent().GetSizer().Layout()
 
 class SignupPanel(wx.Panel):
     def __init__(self,parent):
@@ -160,20 +185,18 @@ class SignupPanel(wx.Panel):
 
         self.SetSizer(hbox)
     
-    # TODO: Need to define the right sign up interface
     def Sign_upClick(self, event):
         username = self.text0.GetValue()
-        respond = self.GetParent().client.sign_up(username, self.text1.GetValue())
-        # return the server address
-        server = "TODO"
+        respond, srvName = self.GetParent().master.sign_up(username, self.text1.GetValue())
         if respond == "Sign up successfully!":
             self.Hide()  
             self.GetParent().initialPanel.Show()
             self.GetParent().GetSizer().Layout()
             # Add the user-server information
             f = open(user_information, 'a+')
-            content = "Username: " + username + "    " + "Server: " + server + '\n'
-            f.write(content)           
+            content = "Username: " + username + "    " + "ServerID: " + srvName + '\n'
+            f.write(content)
+            f.close()           
         else:
             wx.MessageBox('Sign up failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()
