@@ -64,8 +64,10 @@ while True:
         svrName = 0
         client = xmlrpclib.ServerProxy("http://localhost:8000/")
         if (os.path.exists(root_path+"/"+user_name+"/svrName")):
+	    print "From client - user exists"
             f = open(root_path+"/"+user_name+"/svrName", 'r')
             svrName = f.readline()
+	    print svrName
             client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
         
         respond, svrName = client.login_in(user_name, password)
@@ -84,7 +86,7 @@ while True:
             if not (os.path.exists(user_folder)):
                 os.mkdir(user_folder)
             f = open(root_path+"/"+user_name+"/svrName", 'w')
-            f.write(svrName)
+            f.write(str(svrName))
             f.close()
 
             work_path = user_folder
@@ -152,7 +154,6 @@ while True:
     elif state == 5:
         client = xmlrpclib.ServerProxy("http://localhost:8000/")
         
-        
         randNum = random.randint(1,svrNum-1)
 #         print "the randnum is" + str(randNum)
 #         client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
@@ -161,6 +162,8 @@ while True:
             user_name = raw_input("Please enter the username you want:")
             password  = raw_input("Please enter the password you want:")
             initial_password, svrName = client.sign_up(user_name, password)
+	    print initial_password
+	    print svrName
             if initial_password != "Error: This username has been used.":
 	        # build local folder for new user
                 

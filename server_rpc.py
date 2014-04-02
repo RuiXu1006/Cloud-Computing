@@ -17,19 +17,14 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 # total number of server
 serverNum = 9
 
-# This dictionary is used for storing user information in data server
-user_record = dict()
-# This dictionary is used for access key for different users
-key_table = dict()
 # this dictionary is used for serverID for each user
 server_record = dict()
 # This path is only used for listing files and changing directories
 global root_path
-global user_information
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
 root_path = home_dir + "/" + "CloudBox"
-user_information = root_path + "/" + "User_information.txt"
+server_information = root_path + "/" + "Master-Server/Server_information.txt"
 
 # This function is used for testify whether the user has the access to
 # use some specific functions
@@ -67,17 +62,158 @@ class ReadWriteLock:
         self._read_ready.release()
 
 
+# This server is used for distributed servers to clients based on
+# load balancing
+class MasterServer(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+
+    # Build directory for master-server at the beginning
+    def build_up(self, root_path):
+        global lock
+	lock.acquire_write()
+    # test whether this directory exists or not, if the directory doesn't exits,
+    # create root directory for master server
+        if not (os.path.exists(root_path)):
+	    os.mkdir(root_path)
+	if not (os.path.exists(root_path + "/" + "Master-Server")):
+	    os.mkdir(root_path + "/" + "Master-Server")
+	lock.release_write()
+
+    # Build server record information when masterserver establishes
+    def build_server_record(self):
+    # Using lock to synchronize the operation about server record
+        global lock
+        lock.acquire_write()
+    # firstly check that whether this user information file exist or not
+        if os.path.exists(server_information):
+	    f = open(server_information, 'r')
+	else:
+	    f = open(server_information, 'w+')
+	f.close()
+	f = open(server_information, 'r')
+    # Each line in the file stores the information of a user, therefore we read a line
+    # each time
+        content = f.readline()
+	while (content):
+	    content_buffer = re.split('\W+', content)
+	    for index in range(0, len(content_buffer)):
+		if ( index > 0 ) and ( content_buffer[index-1] == "Username"):
+		    user_name = content_buffer[index]
+		if ( index > 0 ) and ( content_buffer[index-1] == "ServerID"):
+		    server_record[user_name] = content_buffer[index]
+	    content = f.readline()
+	lock.release_write()
+
+# This will be used for get the size of given directory, and it will help balance the
+# load when sign up
+    def getdirsize(self, dir):
+        size = 0L
+	for root, dirs, files in os.walk(dir):
+	    size += sum([getsize(join(root, name)) for name in files])
+	return size
+
+# Selecting server based on the size of each server, and select the one which has the
+# least size
+    def select_server(self):
+	minNum = 100000000000L
+	svrName = 1
+	for item in range(1, serverNum):
+	    temp = self.getdirsize(root_path + "/" + str(item))
+	    print 'There are %.3f' % (temp), 'byte in the %d folder' % (item)
+	    # if current foler is the minimum one, record it
+	    if ( temp < minNum ):
+	        minNum = temp
+		svrName = item
+	#print svrName
+	return svrName
+
+# Sign up new user
+    def sign_up(self, user_name, password):
+    # Firstly, make sure that the user_name doesn't exist
+        #print "here"
+	global lock, serverNum, svr
+	lock.acquire_write()
+	if user_name in server_record:
+	    respond = "Error: This username has been used."
+	    svrName = 0
+    # add the user_name and initial password into corresponding user_record of each server
+	else:
+	    initial_password = str(password)
+	    respond = "Sign up successfully!"
+	    sel_server = self.select_server()
+	    svrName = "800" + str(sel_server)
+	    server_record[user_name] = svrName
+	    # record server information into global server information file
+	    f = open(server_information, 'a')
+	    content = "Username: " + user_name + "    " + "ServerID: " + str(sel_server)
+	    f.write(content)
+	    f.close()
+	    # record new user information into corresponding servers' user information
+	    svr[sel_server].user_record[user_name] = initial_password
+	    f = open(root_path + "/" + str(sel_server) + "/" + "User_information.txt", 'a')
+	    content = "Username: " + user_name + "    " + "Password: " + initial_password
+	    f.write(content)
+	    f.close()
+	    MultiServer(1)
+	    # build file folder for new users
+	    new_dir = root_path + "/" + str(svrName)[len(svrName)-1] + "/" + user_name
+	    os.mkdir(new_dir)
+
+        lock.release_write()
+	return respond, svrName
+
+# During the login_in, masterserver will check whether the user has existed or not, if not,
+# respond with error information. If yes, check the user information in the corresponding
+# data server to confirm the correctness of provided password
+    def login_in(self, user_name, password):
+        global lock
+	lock.acquire_write()
+	# Fristly, make sure that there is user_name in the server_record
+	if user_name in server_record.keys():
+	    sel_svrName = server_record[user_name]
+	    # get the port of distributed data server, and if password matches
+	    if user_name in MultiServer(sel_svrName).user_record.keys():
+	        if password == MultiServer(sel_svrName).user_record[user_name]:
+		# assign keys to users, which used for security check
+		    access_key = random.randint(0, 100000000)
+		    access_key = str(access_key)
+		    MultiServer(sel_svrName)[access_key] = user_name
+		    respond = "Login in successfully#" + access_key
+		    svrName = sel_svrName
+		else:
+		    respond = "The password doesn't match with the given username"
+		    svrName = 0
+	else:
+	    respond = "The username doesn't exist"
+	    svrName = 0
+	lock.release_write()
+	return respond, svrName
+
+    def run(self):
+        self.masterserver = ThreadXMLRPCServer(("localhost", 8000), allow_none=True)
+	print "Master-Server has been established!"
+	self.build_up(root_path)
+	self.build_server_record()
+        self.masterserver.register_introspection_functions()
+	self.masterserver.register_function(self.sign_up, "sign_up")
+	self.masterserver.register_function(self.login_in, "login_in")
+	self.masterserver.serve_forever()
+
 class MultiServer(Thread):
     def __init__(self,id):
         Thread.__init__(self)
         self.id =id
-        
-    
+        self.user_information = root_path + "/" + str(self.id) + "/" + "User_information.txt"
+        # This dictionary is used for storing user information in data server
+	self.user_record = dict()
+        # This dictionary is used for access key for different users
+	self.key_table = dict()
     
     def security_check(self,user_name, key):
         foundmatch = False
-        for key in key_table:
-            if key_table[key] == user_name:
+        for key in self.key_table:
+            if self.key_table[key] == user_name:
                 return user_name
         if ~foundmatch:
             result = "denied access"
@@ -110,92 +246,42 @@ class MultiServer(Thread):
         global lock
         lock.acquire_write()
     # firstly check that whether this user information file exist or not
-        if os.path.exists(user_information):
-            f = open(user_information, 'r')
+        if os.path.exists(self.user_information):
+            f = open(self.user_information, 'r')
         else:
-            f = open(user_information, 'w+')
+            f = open(self.user_information, 'w+')
         f.close()
-        f = open(user_information, 'r')
+        f = open(self.user_information, 'r')
     # Each line in the file store the information of a user, therefore we read a line
     # each time
         content = f.readline()
         while (content):
             content_buffer = re.split('\W+', content)
-            for index in range(0, len(content_buffer)-1):
+            for index in range(0, len(content_buffer)):
                 if ( index > 0 ) and ( content_buffer[index-1] == "Username"):
                     user_name = content_buffer[index]
                 if ( index > 0 ) and ( content_buffer[index-1] == "Password"):
                     password = content_buffer[index]
-                    user_record[user_name] = password
-                if ( index > 0 ) and ( content_buffer[index-1] == "ServerID"):
-                    server_record[user_name] = content_buffer[index]
+                    self.user_record[user_name] = password
+                #if ( index > 0 ) and ( content_buffer[index-1] == "ServerID"):
+                #    server_record[user_name] = content_buffer[index]
             content = f.readline()
-        #print user_record 
         lock.release_write()
-
-    
-    def getdirsize(self,dir):  
-       size = 0L  
-       for root, dirs, files in os.walk(dir):  
-          size += sum([getsize(join(root, name)) for name in files])  
-       return size
-    
-    def select_server(self):
-        minNum = 100000000000L
-        svrName = 1
-        for item in range(1,serverNum):
-            temp = self.getdirsize(root_path+"/"+str(item))
-            print 'There are %.3f' % (temp), 'bytes in the %d folder' %(item)
-            if (temp < minNum):
-                minNum = temp
-                svrName = item
-        print svrName
-        return svrName
-
-    # This function is used for signing up into the data server
-    # this method is only used by master server 
-    def sign_up(self, user_name, password):
-    # Firstly make sure that the user_name doesn't exist
-        print "here"
-        global lock, serverNum
-        lock.acquire_write()
-        svrName = 0
-        if user_name in user_record:
-            respond = "Error: This username has been used."
-        else:
-            initial_password = str(password)
-    # add the user_name and initial password into user_record
-            user_record[user_name] = initial_password
-            respond = "Sign up successfully!"
-            svrName = "800" + str(self.select_server())
-            
-            server_record[user_name] = svrName	
-            f = open(user_information, 'a')
-            content = "Username: " + user_name + "    " + "Password: " + initial_password + "    ServerID: " + str(svrName) + '\n'
-            f.write(content)
-            f.close()
-            #print "haha"
-    # build new directory file for new users
-            new_dir = root_path + "/" +str(svrName)[len(svrName)-1] +"/"+ user_name
-            os.mkdir(new_dir)
-            
-        lock.release_write()
-        return respond, svrName
 
     # This function is used for changing the password for clients
     # The client has to provide original password, and new password
     def change_password(self, user_name, original_password, new_password):
     # Firstly, make sure that the user_name in the record:
-        if user_name in user_record:
+        if user_name in self.user_record:
     # If original password matches, change the password
-            if original_password == user_record[user_name]:
-                user_record[user_name] = new_password
+            if original_password == self.user_record[user_name]:
+                self.user_record[user_name] = new_password
                 respond = "Change password successfully"
     # update the change of password in user information file
-                f = open(user_information, 'r')
+                f = open(self.user_information, 'r')
                 lines = f.readlines()
                 f.close()
-                f = open(user_information, 'w')
+                f = open(self.user_information, 'w')
                 for line in lines:
                     con_buffer = re.split('\W+', line)
                     if con_buffer[1] != user_name:
@@ -217,20 +303,21 @@ class MultiServer(Thread):
         global lock
         lock.acquire_write()
     # Firstly, make sure that there is user_name in the record
-        if user_name in user_record.keys():
+        if user_name in self.user_record.keys():
     # Then check whether the password corresponds or not
-            if password == user_record[user_name]:
+            if password == self.user_record[user_name]:
                 access_key = random.randint(0, 10000000)
                 access_key = str(access_key)
-                key_table[access_key] = user_name
+                self.key_table[access_key] = user_name
                 respond = "Login in successfully#" + access_key
                 current_user = user_name
-                svrName = server_record[user_name]
-    	    #print key_table
+		svrName = "800" + str(self.id)
             else:
                 respond = "The password doesn't match with the given username"
+		svrName = 0
         else:
             respond = "The username doesn't exist"
+	    svrName = 0
         lock.release_write()
         return respond, svrName
 
@@ -361,7 +448,6 @@ class MultiServer(Thread):
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
-        server[self.id].register_function(self.sign_up, "sign_up")
         server[self.id].register_function(self.change_password, "change_password")
         server[self.id].register_function(self.login_in, "login_in")
         server[self.id].register_function(self.list_files, "list_files")
@@ -374,26 +460,12 @@ class MultiServer(Thread):
         print "port %d" %(self.id+8000) + " is established!"
 
 lock = ReadWriteLock()
-#server_object = Server()
 
 server = [1]*serverNum
-# for k in range(1):
-#     server[k] = ThreadXMLRPCServer(("localhost", 8000+k), allow_none=True)
-#     print "port %d" %(k+8000) + " is established!"
-#     build_up(root_path)
-#     build_user_record()
-#     server[k].register_introspection_functions()
-#     server[k].register_function(sign_up, "sign_up")
-#     server[k].register_function(change_password, "change_password")
-#     server[k].register_function(login_in, "login_in")
-#     server[k].register_function(list_files, "list_files")
-#     server[k].register_function(change_directory, "change_directory")
-#     server[k].register_function(search_files, "search_files")
-#     server[k].register_function(download_files, "download_files")
-#     server[k].register_function(upload_files, "upload_files")
-#     server[k].register_function(delete_files, "delete_files")
-#     server[k].serve_forever()
 
-for i in range(serverNum):
-    svr = MultiServer(i);
-    svr.start()
+masterserver = MasterServer()
+masterserver.start()
+svr = [1]*(serverNum)
+for i in range(1, serverNum):
+    svr[i] = MultiServer(i);
+    svr[i].start()
