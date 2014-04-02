@@ -62,14 +62,23 @@ while True:
         user_name = raw_input("Please enter your username:")
         password = raw_input("Please enter your password:")
         svrName = 0
+	local_found = False
         client = xmlrpclib.ServerProxy("http://localhost:8000/")
-        if (os.path.exists(root_path+"/"+user_name+"/svrName")):
+        if (os.path.exists(root_path+"/"+user_name+"/svrName.txt")):
 	    print "From client - user exists"
-            f = open(root_path+"/"+user_name+"/svrName", 'r')
+            f = open(root_path+"/"+user_name+"/svrName.txt", 'r')
             svrName = f.readline()
 	    print svrName
-            client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
-        
+	    # check whether the server port is correct or not
+	    if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
+	        local_found = False
+	    else:
+		local_found = True
+	# if not found effective server port in local file, ask for master server
+        if not local_found:
+	    svrName = client.query_server(user_name)
+	    
+        client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
         respond, svrName = client.login_in(user_name, password)
         respond_buffer = respond.split('#')
         respond = respond_buffer[0]
@@ -85,7 +94,7 @@ while True:
             user_folder = root_path + "/" + user_name
             if not (os.path.exists(user_folder)):
                 os.mkdir(user_folder)
-            f = open(root_path+"/"+user_name+"/svrName", 'w')
+            f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
             f.write(str(svrName))
             f.close()
 
@@ -170,7 +179,7 @@ while True:
                 new_dir = root_path + "/" + user_name;
                 if not (os.path.exists(new_dir)):
                     os.mkdir(new_dir)
-                f = open(root_path+"/"+user_name+"/svrName", 'w')
+                f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
                 content = str(svrName)
                 f.write(content)
                 f.close()

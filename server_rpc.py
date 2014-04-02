@@ -146,7 +146,7 @@ class MasterServer(Thread):
 	    server_record[user_name] = svrName
 	    # record server information into global server information file
 	    f = open(server_information, 'a')
-	    content = "Username: " + user_name + "    " + "ServerID: " + str(sel_server)
+	    content = "Username: " + user_name + "    " + "ServerID: " + str(svrName)
 	    f.write(content)
 	    f.close()
 	    # record new user information into corresponding servers' user information
@@ -163,33 +163,16 @@ class MasterServer(Thread):
         lock.release_write()
 	return respond, svrName
 
-# During the login_in, masterserver will check whether the user has existed or not, if not,
-# respond with error information. If yes, check the user information in the corresponding
-# data server to confirm the correctness of provided password
-    def login_in(self, user_name, password):
-        global lock
-	lock.acquire_write()
-	# Fristly, make sure that there is user_name in the server_record
-	if user_name in server_record.keys():
-	    sel_svrName = server_record[user_name]
-	    # get the port of distributed data server, and if password matches
-	    if user_name in MultiServer(sel_svrName).user_record.keys():
-	        if password == MultiServer(sel_svrName).user_record[user_name]:
-		# assign keys to users, which used for security check
-		    access_key = random.randint(0, 100000000)
-		    access_key = str(access_key)
-		    MultiServer(sel_svrName)[access_key] = user_name
-		    respond = "Login in successfully#" + access_key
-		    svrName = sel_svrName
-		else:
-		    respond = "The password doesn't match with the given username"
-		    svrName = 0
-	else:
-	    respond = "The username doesn't exist"
-	    svrName = 0
-	lock.release_write()
-	return respond, svrName
-
+# Client will connect master-server to get the corresponding port
+    def query_server(self, user_name):
+    # First make sure that the user_name exists
+        if user_name in server_record:
+	    svrName = server_record[user_name]
+	    return svrName
+        else:
+	    svrName = "8000"
+	    return svrName
+        
     def run(self):
         self.masterserver = ThreadXMLRPCServer(("localhost", 8000), allow_none=True)
 	print "Master-Server has been established!"
@@ -197,7 +180,7 @@ class MasterServer(Thread):
 	self.build_server_record()
         self.masterserver.register_introspection_functions()
 	self.masterserver.register_function(self.sign_up, "sign_up")
-	self.masterserver.register_function(self.login_in, "login_in")
+	self.masterserver.register_function(self.query_server, "query_server")
 	self.masterserver.serve_forever()
 
 class MultiServer(Thread):
