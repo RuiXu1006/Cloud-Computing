@@ -2,6 +2,7 @@
 
 import xmlrpclib
 import os
+import re
 
 try:
     import wx
@@ -123,12 +124,12 @@ class LoginPanel(wx.Panel):
                 flag = 1
         
         if flag == 1:
-            self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:800"+srvName+"/")
+            self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:"+srvName+"/")
         else:
             self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
-            respond, srvName = self.GetParent().master.search(self.GetParent().username)
-            if respond == "TODO":
-                self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:800"+srvName+"/")
+            respond, srvName = self.GetParent().master.query_server(self.GetParent().username)
+            if respond == "Found":
+                self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:"+srvName+"/")
                 flag = 1
             else:
                 wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
@@ -138,7 +139,7 @@ class LoginPanel(wx.Panel):
         
         # Login to the corresponding server
         if flag == 1:    
-            respond = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
+            respond, srvName = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
             respond_buffer = respond.split('#')
             if respond_buffer[0] == "Login in successfully":
                 self.GetParent().key = respond_buffer[1]
@@ -196,7 +197,11 @@ class SignupPanel(wx.Panel):
             f = open(user_information, 'a+')
             content = "Username: " + username + "    " + "ServerID: " + srvName + '\n'
             f.write(content)
-            f.close()           
+            f.close()
+            # Create new folder
+            new_dir = root_path + "/" + username;
+            if not (os.path.exists(new_dir)):
+                os.mkdir(new_dir)           
         else:
             wx.MessageBox('Sign up failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()

@@ -168,10 +168,12 @@ class MasterServer(Thread):
     # First make sure that the user_name exists
         if user_name in server_record:
 	    svrName = server_record[user_name]
-	    return svrName
+	    respond = "Found"
+	    return respond, svrName
         else:
 	    svrName = "8000"
-	    return svrName
+	    respond = "Not found"
+	    return respond, svrName
         
     def run(self):
         self.masterserver = ThreadXMLRPCServer(("localhost", 8000), allow_none=True)
