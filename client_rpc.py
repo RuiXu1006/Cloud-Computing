@@ -62,23 +62,24 @@ while True:
         user_name = raw_input("Please enter your username:")
         password = raw_input("Please enter your password:")
         svrName = 0
-	local_found = False
+        local_found = False
         client = xmlrpclib.ServerProxy("http://localhost:8000/")
         if (os.path.exists(root_path+"/"+user_name+"/svrName.txt")):
-	    print "From client - user exists"
+            print "From client - user exists"
             f = open(root_path+"/"+user_name+"/svrName.txt", 'r')
             svrName = f.readline()
-	    print svrName
-	    # check whether the server port is correct or not
-	    if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
-	        local_found = False
-	    else:
-		local_found = True
-	# if not found effective server port in local file, ask for master server
+            print svrName
+        # check whether the server port is correct or not
+        if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
+            local_found = False
+        else:
+            local_found = True
+        # if not found effective server port in local file, ask for master server
         if not local_found:
-	    svrName = client.query_server(user_name)
-	    
+            svrName = client.query_server(user_name)
+            
         client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
+        #print user_name + " || "+ password
         respond, svrName = client.login_in(user_name, password)
         respond_buffer = respond.split('#')
         respond = respond_buffer[0]
@@ -171,10 +172,10 @@ while True:
             user_name = raw_input("Please enter the username you want:")
             password  = raw_input("Please enter the password you want:")
             initial_password, svrName = client.sign_up(user_name, password)
-	    print initial_password
-	    print svrName
+            print initial_password
+            print svrName
             if initial_password != "Error: This username has been used.":
-	        # build local folder for new user
+            # build local folder for new user
                 
                 new_dir = root_path + "/" + user_name;
                 if not (os.path.exists(new_dir)):
@@ -192,45 +193,45 @@ while True:
 # call change_password function to change password
     elif state == 6:
         while True:
-	    user_name = raw_input("Please enter your username:")
-	    original_password = raw_input("Please enter your original password:")
-	    new_password = raw_input("Please enter your new password:")
-	    respond = client.change_password(user_name, original_password, new_password)
-	    if respond == "Change password successfully":
-	        print "From Server - " + respond
-		break
-	    elif respond == "The original password is wrong":
-	        print "From Server - Error: " + respond
-	    else:
-	        print "From Server - Error: " + respond
+            user_name = raw_input("Please enter your username:")
+            original_password = raw_input("Please enter your original password:")
+            new_password = raw_input("Please enter your new password:")
+            respond = client.change_password(user_name, original_password, new_password)
+            if respond == "Change password successfully":
+                print "From Server - " + respond
+                break
+            elif respond == "The original password is wrong":
+                print "From Server - Error: " + respond
+            else:
+                print "From Server - Error: " + respond
 
 # call list_files function to get the list of files under current directory
     elif state == 7:
         global user_name
         file_list = client.list_files(user_name,rel_path,work_key)
-	for files in file_list:
-	    print files
+        for files in file_list:
+            print files
 
 # call change_directory function
     elif state == 8:
         global user_name
 # get the directory name from the input of users
         dir_name = raw_input("Change directory to: ")
-	rel_path_buffer = dir_name
+        rel_path_buffer = dir_name
 # If users need to go back to parent directory
-	if dir_name == "..":
+        if dir_name == "..":
 # check whether it reaches the root of user directory or not
-	    if rel_path == "":
-	        dir_name = "/"
-		rel_path_buffer = ""
-	    else:
+            if rel_path == "":
+                dir_name = "/"
+                rel_path_buffer = ""
+            else:
                 dir_name = "/" + rel_path
-		dir_name = os.path.abspath(os.path.join(dir_name, os.pardir))
-	        if dir_name == "/":
-		    rel_path_buffer = ""
+            dir_name = os.path.abspath(os.path.join(dir_name, os.pardir))
+        if dir_name == "/":
+            rel_path_buffer = ""
         else:
-	    dir_name = "/" + dir_name
-	respond = client.change_directory(user_name,dir_name,work_key)
+            dir_name = "/" + dir_name
+        respond = client.change_directory(user_name,dir_name,work_key)
 # if cd successfully, update rel_path parameter
         if respond == "cd successfully":
             rel_path = rel_path_buffer
