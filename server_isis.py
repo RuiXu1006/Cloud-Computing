@@ -21,7 +21,7 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 # total number of server
-serverNum = 9
+serverNum = 2
 
 # this dictionary is used for serverID for each user
 server_record = dict()
@@ -192,7 +192,7 @@ class MasterServer(Thread):
         self.masterserver.serve_forever()
 
 class MultiServer(Thread):
-    def __init__(self,id, group):
+    def __init__(self,id):
         Thread.__init__(self)
         self.id =id
         self.user_information = root_path + "/" + str(self.id) + "/" + "User_information.txt"
@@ -200,7 +200,7 @@ class MultiServer(Thread):
         self.user_record = dict()
         # This dictionary is used for access key for different users
         self.key_table = dict()
-        self.group = group
+        self.group = Group("group"+str((id+1)/2))
         self.group.RegisterHandler(0, Action[str, str, str, str](self.upload_files))
         self.group.Join()
     
@@ -469,12 +469,9 @@ server = [1]*serverNum
 masterserver = MasterServer()
 masterserver.start()
 svr = [1]*(serverNum)
-group = [1]*(serverNum/2)
-for i in range(1, serverNum/2):
-    group[i] = Group("group"+str(i))
 
 for i in range(1, serverNum):
-    svr[i] = MultiServer(i,group[(i+1)/2]);
+    svr[i] = MultiServer(i));
     svr[i].start()
 
 IsisSystem.WaitForever()
