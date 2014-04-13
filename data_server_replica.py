@@ -1,5 +1,6 @@
 # This part will enable Isis2 Library in the code
 from System import Action
+import sys
 import clr
 clr.AddReference('IsisLib')
 import Isis 
@@ -404,14 +405,8 @@ class MultiServer(Thread):
 
 lock = ReadWriteLock()
 
-IsisSystem.Start()
+print sys.argv[1]
+id = int(sys.argv[1])
 
-server = [1]*serverNum
-
-svr = [1]*(serverNum)
-for i in range(1, 2):
-    svr[i] = MultiServer(i);
-    svr[i].start()
-
-IsisSystem.WaitForever()
-
+svr = MultiServer(id);
+svr.start()
