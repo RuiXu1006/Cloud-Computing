@@ -7,15 +7,12 @@ clr.AddReference('IsisLib')
 import Isis 
 from Isis import * 
 
-IsisSystem.Start()
-
 for i in range(1,3):
     p = Process()
     p.StartInfo.UseShellExecute = False
     p.StartInfo.RedirectStandardOutput = True
     # put ironpython binary path here
     p.StartInfo.FileName = 'C:\Program Files (x86)\IronPython 2.7\ipy'
-    p.StartInfo.Arguments = 'data_server.py '+ str(i)
+    p.StartInfo.Arguments = 'data_server_replica.py '+ str(i)
     p.Start()
 
-IsisSystem.WaitForever()

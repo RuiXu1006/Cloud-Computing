@@ -24,7 +24,7 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 # total number of server
-serverNum = 2
+serverNum = 3
 
 # this dictionary is used for serverID for each user
 server_record = dict()
@@ -35,6 +35,7 @@ home_dir = os.path.expanduser("~")
 root_path = home_dir + "/" + "CloudBox"
 server_information = root_path + "/" + "Master-Server/Server_information.txt"
 
+IsisSystem.Start()
 # This Lock class will used for the synchronization in data servers
 class ReadWriteLock:
     def __init__(self):
@@ -74,16 +75,15 @@ class MultiServer(Thread):
         self.user_record = dict()
         # This dictionary is used for access key for different users
         self.key_table = dict()
-	# two servers will be assigned into one group
+        # two servers will be assigned into one group
         self.group = Group("group"+str((id+1)/2))
-	# Register Handlers in the group
+        # Register Handlers in the group
         self.group.RegisterHandler(0, Action[str, str, str, str](self.upload_files))
         self.group.RegisterHandler(1, Action[str, str](self.update_keytable))
         self.group.RegisterHandler(2, Action[str, str, str](self.delete_files))
         self.group.RegisterHandler(3, Action[str, str, str](self.change_password))
         self.group.RegisterHandler(4, Action[str, str](self.update_user_record))
         self.group.Join()
-   
     # Security check function will check whether key matches with given user_name
     def security_check(self,user_name, key):
         foundmatch = False
@@ -405,8 +405,10 @@ class MultiServer(Thread):
 
 lock = ReadWriteLock()
 
-print sys.argv[1]
-id = int(sys.argv[1])
+server = [1]*serverNum
 
+id = int(sys.argv[1])
 svr = MultiServer(id);
 svr.start()
+
+IsisSystem.WaitForever()
