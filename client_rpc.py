@@ -9,12 +9,10 @@ root_path = home_dir + "/" + "LocalBox"
 if not (os.path.exists(root_path)):
     os.mkdir(root_path)
 
-
 # find which server to put data
 
-
 # the total number of server
-svrNum = 9
+svrNum = 2
 
 # connect to the remote server of RPC
 # this is connect to the master server to determine which server to serve
@@ -24,10 +22,11 @@ print "The following are available methods on data server"
 print client.system.listMethods()
 """
 global client
-global user_name
+#global user_name
 global work_path
 global rel_path
 global work_key
+user_name = ""
 print "Note: At the beginning, you should login in firstly!"
 
 while True:
@@ -56,14 +55,12 @@ while True:
         state = 9
 
 # call login_in function to login into the remote server
-    if state == 0:
-        global user_name
-        
+    if state == 0:    
         user_name = raw_input("Please enter your username:")
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        #client = xmlrpclib.ServerProxy("http://localhost:8000/")
         if (os.path.exists(root_path+"/"+user_name+"/svrName.txt")):
             print "From client - user exists"
             f = open(root_path+"/"+user_name+"/svrName.txt", 'r')
@@ -81,6 +78,7 @@ while True:
         client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
         #print user_name + " || "+ password
         respond, svrName = client.login_in(user_name, password)
+        print respond, svrName
         respond_buffer = respond.split('#')
         respond = respond_buffer[0]
         print svrName
@@ -103,7 +101,6 @@ while True:
 
 # call search_files function in the remote server
     elif state == 1:
-        global user_name
         file_name = raw_input("Please enter the file name you want to find:")
         respond = client.search_files(user_name,file_name,work_key)
 # if respond is not found, print corresponding result
@@ -114,7 +111,6 @@ while True:
 
 # call download_files function in the remote server
     elif state == 2:
-        global user_name
         file_name = raw_input("Please enter the file name you want to download:")
 # before downloading, make sure that the file exists
         respond = client.search_files(user_name, file_name, work_key)
@@ -123,31 +119,31 @@ while True:
             file_location = work_path + "/" + file_name
             with open(file_location, "wb") as handle:
                 handle.write(client.download_files(user_name,file_name,work_key).data)
-	    print "From client - Downloading file successfully"
+                print "From client - Downloading file successfully"
 # If the file doesn't exist, show the failure of downloading
         else:
             print "From client - Downloading Failure: the required file doesn't exist in server" 
 
 # call upload_file function to upload files to server
     elif state == 3:
-        global user_name
 # input the file name which will be uploaded
         file_name = raw_input("Please enter the file name you want to upload:")
         file_location = work_path + "/" + file_name
-# open the file, reand the content and send these content
-        with open(file_location, "rb") as handle:
-            transmit_data = xmlrpclib.Binary(handle.read())
-            respond = client.upload_files(user_name,file_name,transmit_data,work_key)
-# Based on the respond to output corresponding information
-        if respond:
-            print "From client - Uploading file successfully"
+        #firstly need to make sure that the file uploaded does exist
+        if os.path.exists(file_location):
+            # open the file, reand the content and send these content
+            with open(file_location, "rb") as handle:
+                transmit_data = xmlrpclib.Binary(handle.read())
+                respond = client.upload_files(user_name,file_name,transmit_data,work_key)
+            # Based on the respond to output corresponding information
+            if respond:
+                print "From client - Uploading file successfully"
+            else:
+                print "From client - Uploading file unsuccessfully"
         else:
-            print "From client - Uploading file unsuccessfully"
-
+            print "From client - Error: The uploaded file doesn't exist"
 # call delete_file function to delete files in the data server
     elif state == 4:
-        global user_name
-        
 # enter the file name which will be deleted
         file_name = raw_input("Please enter the file name you want to delete:")
 # make sure that the file does exist
@@ -155,7 +151,7 @@ while True:
 # if the file exist, delete it
         if respond != "Not found":
             if client.delete_files(user_name,file_name,work_key):
-	        print "From client - Delete file successfully"
+                print "From client - Delete file successfully"
 # otherwise, print the error information
         else:
             print "From client - Delete file unsuccessfully, because the file doesn't exist."
@@ -207,14 +203,12 @@ while True:
 
 # call list_files function to get the list of files under current directory
     elif state == 7:
-        global user_name
         file_list = client.list_files(user_name,rel_path,work_key)
         for files in file_list:
             print files
 
 # call change_directory function
     elif state == 8:
-        global user_name
 # get the directory name from the input of users
         dir_name = raw_input("Change directory to: ")
         rel_path_buffer = dir_name
@@ -240,4 +234,5 @@ while True:
 # if the function is unrecognized, print Error information
     else:
         print "From client - Unrecognized function, please enter again!"
+
 
