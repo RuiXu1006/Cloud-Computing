@@ -71,6 +71,7 @@ class MultiServer(Thread):
         Thread.__init__(self)
         self.id =id
         self.user_information = root_path + "/" + str(self.id) + "/" + "User_information.txt"
+        self.running_log = root_path + "/" + str(self.id) + "/" + "Running_Log.txt"
         # This dictionary is used for storing user information in data server
         self.user_record = dict()
         # This dictionary is used for access key for different users
@@ -113,6 +114,13 @@ class MultiServer(Thread):
         """
         if not (os.path.exists(user_folder)):
             os.mkdir(user_folder)
+        
+    # Build log file which documents the running information of data server
+        if (os.path.exists(self.running_log)):
+            f = open(self.running_log, 'r')
+        else:
+            f = open(self.running_log, 'w+')
+        f.close()
         lock.release_write()
     
     # send command to all members in the group to prepare for updating their own user_record
@@ -239,7 +247,10 @@ class MultiServer(Thread):
             file_list = os.listdir(work_path)
             respond = file_list
         lock.release_write()
-        print "listfile %d" % self.id
+        f = open(self.running_log, 'a')
+        f.write("listfile " + str(self.id) + '\n')
+        f.close()
+        #print "listfile %d" % self.id
         return respond
 
     # This function is used for change directories in the data server
@@ -337,12 +348,10 @@ class MultiServer(Thread):
     def upload_files(self,user_name,file_name, transmit_data, key):
         global lock
         if self.security_check(user_name, key) == "denied access":
-            print "From server1 - Denied access!!!"
             respond = "You have no right to use this function"
             self.group.Reply(-1)
             return
         else:
-            print "Begin uploading!!!"
             lock.acquire_write()
             current_user = self.security_check(user_name, key)
     # set the root directory to store upload files, and get
@@ -388,7 +397,10 @@ class MultiServer(Thread):
     def run(self):
         global server
         server[self.id] = ThreadXMLRPCServer(("localhost", 8000+self.id), allow_none=True)
-        print "port %d" %(self.id+8000) + " is established!"
+        f = open(self.running_log, 'a')
+        f.write("port " + str(self.id + 80000) + " is established!\n")
+        f.close()
+        #print "port %d" %(self.id+8000) + " is established!"
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
@@ -401,7 +413,6 @@ class MultiServer(Thread):
         server[self.id].register_function(self.upload_files_cmd, "upload_files")
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
         server[self.id].serve_forever()
-        print "port %d" %(self.id+8000) + " is established!"
 
 lock = ReadWriteLock()
 
