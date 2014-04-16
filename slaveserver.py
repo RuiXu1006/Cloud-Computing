@@ -430,7 +430,8 @@ class MultiServer(Thread):
             lock.release_write()
             return True
     
-s
+    def modifyUserTable(self, user_name, initial_password):
+        svr[self.id].user_record[user_name] = initial_password
         #print str(self.id) + " "+ str(user_name) + " " + str(initial_password)
     
     
@@ -442,22 +443,24 @@ s
     def run(self):
         global server, serverListener
         
-        serverListener[self.id] = ThreadXMLRPCServer(("localhost", 8080+self.id), allow_none=True)
+        #serverListener[self.id] = ThreadXMLRPCServer(("localhost", 8080+self.id), allow_none=True)
         
         server[self.id] = ThreadXMLRPCServer(("localhost", 8000+self.id), allow_none=True)
         
-        print "To client port %d" %(self.id+8000) + " is established!"
-        print "To masterServer port %d" %(self.id+8080) + " is established!"
+        #print "To client port %d" %(self.id+8000) + " is established!"
+        #print "To masterServer port %d" %(self.id+8080) + " is established!"
+        print "port %d" %(self.id+8000) + " is established!"
         
         # to the masterServer part
-        serverListener[self.id].register_introspection_functions()
-        serverListener[self.id].register_function(self.modifyUserTable, "modifyUserTable")
+        #serverListener[self.id].register_introspection_functions()
+        #serverListener[self.id].register_function(self.modifyUserTable, "modifyUserTable")
         #serverListener[self.id].serve_forever()
         
         # to the client part
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
+        server[self.id].register_function(self.modifyUserTable, "modifyUserTable")
         server[self.id].register_function(self.change_password, "change_password")
         server[self.id].register_function(self.login_in, "login_in")
         server[self.id].register_function(self.list_files, "list_files")
@@ -466,13 +469,12 @@ s
         server[self.id].register_function(self.download_files, "download_files")
         server[self.id].register_function(self.upload_files, "upload_files")
         server[self.id].register_function(self.delete_files, "delete_files")
-        #server[self.id].serve_forever()
-        #print "port %d" %(self.id+8000) + " is established!"
+        server[self.id].serve_forever()
         
-        helper1[self.id] = SvrToMaster(self.id)
-        helper1[self.id].start()
-        helper2[self.id] = SvrToClient(self.id)
-        helper2[self.id].start()
+        #helper1[self.id] = SvrToMaster(self.id)
+        #helper1[self.id].start()
+        #helper2[self.id] = SvrToClient(self.id)
+        #helper2[self.id].start()
 
 lock = ReadWriteLock()
 

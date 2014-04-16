@@ -24,7 +24,7 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 # total number of server
-serverNum = 3
+serverNum = 9
 
 # this dictionary is used for serverID for each user
 server_record = dict()
@@ -84,6 +84,7 @@ class MultiServer(Thread):
         self.group.RegisterHandler(2, Action[str, str, str](self.delete_files))
         self.group.RegisterHandler(3, Action[str, str, str](self.change_password))
         self.group.RegisterHandler(4, Action[str, str](self.update_user_record))
+        self.group.RegisterHandler(5, Action[str, str](self.modifyUserTable))
         self.group.Join()
     # Security check function will check whether key matches with given user_name
     def security_check(self,user_name, key):
@@ -394,16 +395,27 @@ class MultiServer(Thread):
             self.group.Reply(1)
             return
     
+    def modifyUserTable(self, user_name, initial_password):
+        self.writeLog("modifying User Table")
+        svr.user_record[user_name] = initial_password
+        self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password))
+    
+    def writeLog(self, log):
+        f = open(root_path + "/" + "Running_Log.txt", 'a')
+        f.write(log);
+        f.close()
+    
     def run(self):
         global server
         server[self.id] = ThreadXMLRPCServer(("localhost", 8000+self.id), allow_none=True)
-        f = open(self.running_log, 'a')
-        f.write("port " + str(self.id + 80000) + " is established!\n")
-        f.close()
+        
         #print "port %d" %(self.id+8000) + " is established!"
+        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
+        server[self.id].register_function(self.writeLog, "writeLog")
+        server[self.id].register_function(self.modifyUserTable, "modifyUserTable")
         server[self.id].register_function(self.change_password_cmd, "change_password")
         server[self.id].register_function(self.login_in, "login_in")
         server[self.id].register_function(self.list_files, "list_files")

@@ -117,7 +117,7 @@ class MasterServer(Thread):
         svrName = 1
         for item in range(1, serverNum):
             temp = self.getdirsize(root_path + "/" + str(item))
-            print 'There are %.3f' % (temp), 'byte in the %d folder' % (item)
+            self.writeLog( "There are %.3f" % (temp)+ "byte in the %d folder" % (item)+"\n")
             # if current foler is the minimum one, record it
             if ( temp < minNum ):
                 minNum = temp
@@ -155,18 +155,19 @@ class MasterServer(Thread):
                 """"
                 svr[sel_server].user_record[user_name] = initial_password
                 """
-                dataServerName = "808" + str(svrN)
+                dataServerName = "800" + str(svrN)
+                self.writeLog("from master write to "+dataServerName)
                 tempClient = xmlrpclib.ServerProxy("http://localhost:"+str(dataServerName)+"/")
-                print tempClient.system.listMethods()
+                tempClient.writeLog("here!!!")
+                #writeLog(tempClient.system.listMethods())
                 tempClient.modifyUserTable(user_name, initial_password)
                 tempClient = None
-                
-
+                self.writeLog("start write user_info!\n")
                 f = open(root_path + "/" + str(svrN) + "/" + "User_information.txt", 'a')
                 content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
                 f.write(content)
                 f.close()
-                print "finish write to file on server"+ svrName
+                self.writeLog("finish write to file on server"+ svrName)
                 # build file folder for new users
                 new_dir = root_path + "/" + str(svrName)[len(svrName)-1] + "/" + user_name
                 os.mkdir(new_dir)
@@ -176,43 +177,6 @@ class MasterServer(Thread):
         return respond, svrName
         
         
-# Sign up new user
-    def sign_up(self, user_name, password):
-    # Firstly, make sure that the user_name doesn't exist
-        #print "here"
-        global lock, serverNum, svr
-        lock.acquire_write()
-        print "here sign up"
-        if user_name in server_record:
-            respond = "Error: This username has been used."
-            svrName = 0
-        # add the user_name and initial password into corresponding user_record of each server
-        else:
-            initial_password = str(password)
-            respond = "Sign up successfully!"
-            sel_server = self.select_server()
-            svrName = "800" + str(sel_server)
-            server_record[user_name] = svrName
-            # record server information into global server information file
-            f = open(server_information, 'a')
-            content = "Username: " + user_name + "    " + "ServerID: " + str(svrName)
-            f.write(content)
-            f.close()
-            # record new user information into corresponding servers' user information
-            svr[sel_server].user_record[user_name] = initial_password
-            f = open(root_path + "/" + str(sel_server) + "/" + "User_information.txt", 'a')
-            content = "Username: " + user_name + "    " + "Password: " + initial_password
-            f.write(content)
-            f.close()
-            print "here 2"
-            #MultiServer(1)
-            # build file folder for new users
-            new_dir = root_path + "/" + str(svrName)[len(svrName)-1] + "/" + user_name
-            os.mkdir(new_dir)
-
-            lock.release_write()
-        return respond, svrName
-
 # Client will connect master-server to get the corresponding port
     def query_server(self, user_name):
     # First make sure that the user_name exists
@@ -224,8 +188,14 @@ class MasterServer(Thread):
             svrName = "8000"
             respond = "Not found"
             return respond, svrName
-        
+    def writeLog(self, log):
+        f = open(root_path + "/" + "Running_Log.txt", 'a')
+        f.write(log);
+        f.close()
+
     def run(self):
+        f = open(root_path + "/" + "Running_Log.txt", 'w')
+        f.close()
         self.masterserver = ThreadXMLRPCServer(("localhost", 8000), allow_none=True)
         print "Master-Server has been established!"
         self.build_up(root_path)

@@ -7,7 +7,15 @@ clr.AddReference('IsisLib')
 import Isis 
 from Isis import * 
 
-for i in range(1,3):
+
+p = Process()
+p.StartInfo.UseShellExecute = False
+p.StartInfo.RedirectStandardOutput = True
+p.StartInfo.FileName = 'C:\Program Files (x86)\IronPython 2.7\ipy'
+p.StartInfo.Arguments = 'master_server.py '
+p.Start()
+svrNum  = 9
+for i in range(1, svrNum):
     p = Process()
     p.StartInfo.UseShellExecute = False
     p.StartInfo.RedirectStandardOutput = True
