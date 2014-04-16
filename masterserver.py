@@ -143,7 +143,7 @@ class MasterServer(Thread):
             initial_password = str(password)
             respond = "Sign up successfully!"
             sel_server = self.select_server()
-            for svrN in range((sel_server-1)/2*2+1, (sel_server-1)/2*2+3):
+            for svrN in range((sel_server-1)/2*2+1, (sel_server-1)/2*2+2):
                 svrName = "800" + str(svrN)
                 server_record[user_name] = svrName
                 # record server information into global server information file
@@ -163,14 +163,7 @@ class MasterServer(Thread):
                 tempClient.modifyUserTable(user_name, initial_password)
                 tempClient = None
                 self.writeLog("start write user_info!\n")
-                f = open(root_path + "/" + str(svrN) + "/" + "User_information.txt", 'a')
-                content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
-                f.write(content)
-                f.close()
-                self.writeLog("finish write to file on server"+ svrName)
-                # build file folder for new users
-                new_dir = root_path + "/" + str(svrName)[len(svrName)-1] + "/" + user_name
-                os.mkdir(new_dir)
+
 
             lock.release_write()
             svrname = self.getRandom(sel_server)

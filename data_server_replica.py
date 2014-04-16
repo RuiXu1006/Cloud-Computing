@@ -394,11 +394,43 @@ class MultiServer(Thread):
             lock.release_write()
             self.group.Reply(1)
             return
+
+    def delete_files_cmd(self, user_name, file_name, key):
+        #print "Enter upload files cmd"
+        respond = True
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 2, user_name, file_name, key, EOLMarker(), res)
+        # if there are some fails in some servers, return False 
+        for reply in res:
+            if (reply == -1):
+                respond = False
+                break
+        return respond
     
+    def modifyUserTable_cmd(self,user_name, initial_password):
+        respond = True
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 5, user_name,initial_password, EOLMarker(), res)
+        for reply in res:
+            if (reply == -1):
+                respond = False
+                break
+        return respond
+
     def modifyUserTable(self, user_name, initial_password):
         self.writeLog("modifying User Table")
         svr.user_record[user_name] = initial_password
-        self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password))
+        self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
+        f = open(root_path + "/" + str(self.id) + "/" + "User_information.txt", 'a')
+        content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
+        f.write(content)
+        f.close()
+        self.writeLog("finish write to file on server"+ "800"+ str(self.id))
+        # build file folder for new users
+        new_dir = root_path + "/" + str(self.id) + "/" + user_name
+        os.mkdir(new_dir)
+        self.group.Reply(1)
+        return
     
     def writeLog(self, log):
         f = open(root_path + "/" + "Running_Log.txt", 'a')
@@ -415,7 +447,7 @@ class MultiServer(Thread):
         self.build_user_record()
         server[self.id].register_introspection_functions()
         server[self.id].register_function(self.writeLog, "writeLog")
-        server[self.id].register_function(self.modifyUserTable, "modifyUserTable")
+        server[self.id].register_function(self.modifyUserTable_cmd, "modifyUserTable")
         server[self.id].register_function(self.change_password_cmd, "change_password")
         server[self.id].register_function(self.login_in, "login_in")
         server[self.id].register_function(self.list_files, "list_files")
