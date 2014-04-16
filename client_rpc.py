@@ -12,7 +12,7 @@ if not (os.path.exists(root_path)):
 # find which server to put data
 
 # the total number of server
-svrNum = 9
+svrNum = 2
 
 # connect to the remote server of RPC
 # this is connect to the master server to determine which server to serve
@@ -60,7 +60,7 @@ while True:
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        #client = xmlrpclib.ServerProxy("http://localhost:8000/")
         if (os.path.exists(root_path+"/"+user_name+"/svrName.txt")):
             print "From client - user exists"
             f = open(root_path+"/"+user_name+"/svrName.txt", 'r')
