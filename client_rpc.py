@@ -29,6 +29,8 @@ global work_key
 user_name = ""
 print "Note: At the beginning, you should login in firstly!"
 
+chooseMaster = random.randint(0,1)
+
 while True:
         # Ask clients to select which function will be used
     function = raw_input("Please enter the function name you want:")
@@ -60,7 +62,11 @@ while True:
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        if (chooseMaster == 0):
+            client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        else:
+            client = xmlrpclib.ServerProxy("http://localhost:9000/")
+            
         if (os.path.exists(root_path+"/"+user_name+"/svrName.txt")):
             print "From client - user exists"
             f = open(root_path+"/"+user_name+"/svrName.txt", 'r')
@@ -158,7 +164,10 @@ while True:
 
 # call sign_up function to sign up in the data server
     elif state == 5:
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        if (chooseMaster == 0):
+            client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        else:
+            client = xmlrpclib.ServerProxy("http://localhost:9000/")
         
         randNum = random.randint(1,svrNum-1)
 #         print "the randnum is" + str(randNum)

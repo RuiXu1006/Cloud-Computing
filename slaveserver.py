@@ -431,15 +431,31 @@ class MultiServer(Thread):
             return True
     
     def modifyUserTable(self, user_name, initial_password):
+        self.writeLog("modifying User Table")
         svr[self.id].user_record[user_name] = initial_password
-        #print str(self.id) + " "+ str(user_name) + " " + str(initial_password)
-    
+        self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
+        f = open(root_path + "/" + str(self.id) + "/" + "User_information.txt", 'a')
+        content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
+        f.write(content)
+        f.close()
+        self.writeLog("finish write to file on server"+ "800"+ str(self.id))
+        # build file folder for new users
+        new_dir = root_path + "/" + str(self.id) + "/" + user_name
+        os.mkdir(new_dir)
+        #self.group.Reply(1)
+        return
     
     # class SvrToMaster(Thread):
     #     def run(self):
     #         global serverListener
             
     
+    
+    def writeLog(self, log):
+        f = open(root_path + "/" + "Running_Log.txt", 'a')
+        f.write(log);
+        f.close()
+        
     def run(self):
         global server, serverListener
         
@@ -460,6 +476,7 @@ class MultiServer(Thread):
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
+        server[self.id].register_function(self.writeLog, "writeLog")
         server[self.id].register_function(self.modifyUserTable, "modifyUserTable")
         server[self.id].register_function(self.change_password, "change_password")
         server[self.id].register_function(self.login_in, "login_in")
