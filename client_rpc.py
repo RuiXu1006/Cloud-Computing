@@ -32,6 +32,7 @@ print "Note: At the beginning, you should login in firstly!"
 
 # This function is used for selecting data server from clients side
 def select_dserver():
+    svr_list = []
     if (os.path.exists(root_path + "/" +user_name + "/svrName.txt")):
         print "From client - Local record exists"
         f = open(root_path + "/" + user_name + "/svrName.txt", 'r')
@@ -41,10 +42,11 @@ def select_dserver():
             svrName = svrName.rstrip('\n')
             print svrName
             # check whether the server port is correct or not
-            if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
-                print "This server name is not valid"
-            else:
-                svr_list.append(svrName)
+            # if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
+#                 print "This server name is not valid"
+#             else:
+#                 svr_list.append(svrName)
+            svr_list.append(svrName)
             svrName = f.readline()
         if len(svr_list) != 0:
             local_found = True
@@ -61,7 +63,7 @@ def select_dserver():
         #print svr_index
         svrName = svr_list[svr_index]
         print "The selected data serve is " + str(svrName)
-        return int(svrName)
+        return svrName
     else:
         return 0;
 while True:
@@ -111,9 +113,9 @@ while True:
                 f.close()
             svrName = select_dserver()
 
-        client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
+        client = xmlrpclib.ServerProxy(svrName)
         #print user_name + " || "+ password
-        respond, svrName = client.login_in(user_name, password)
+        respond, svrName1 = client.login_in(user_name, password)
         print respond, svrName
         respond_buffer = respond.split('#')
         respond = respond_buffer[0]
@@ -122,7 +124,7 @@ while True:
 # if login in successfully, building sub-folders for this user in
 # the local folder
         if respond == "Login in successfully":
-            client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
+            client = xmlrpclib.ServerProxy(svrName)
             rel_path = ""
             work_key = respond_buffer[1]
             print "From client - the key is " + work_key

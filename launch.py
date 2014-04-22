@@ -6,7 +6,11 @@ import clr
 clr.AddReference('IsisLib')
 import Isis 
 from Isis import * 
-
+import os
+home_dir = os.path.expanduser("~")
+root_path = home_dir + "/" + "CloudBox"
+f = open(root_path + "/" + "Running_Log.txt", 'w')
+f.close()
 
 p = Process()
 masterNum = 2

@@ -25,6 +25,8 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 serverNum = 9
 # the data servers in a group
 Num_mem = 2
+# the list to store the address of each server
+groups = []
 
 # this dictionary is used for serverID for each user
 group_record = dict()
@@ -99,6 +101,22 @@ class MasterServer(Thread):
         else:
             f = open(root_path + "/" + "Running_Log.txt", 'r')
             f.close()
+            
+            
+        # build the server Address for each dataServer
+        f = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt", 'r')
+        line = 1
+        groups.append([])
+        content = f.readline()
+        while (content):
+            content_buffer = re.split('\t', content)
+            groups.append([])
+            for i in range(0, len(content_buffer)):
+                groups[line].append(re.split('\n', content_buffer[i])[0])
+            line += 1
+            content = f.readline()
+        f.close()
+        
         lock.release_write()
 
     # Build server record information when masterserver establishes
@@ -192,16 +210,19 @@ class MasterServer(Thread):
             sel_group = self.select_group()
             # record server information into global server information file
             self.writeServerInfo_cmd(user_name, str(sel_group))
-            for svrN in range(2*int(sel_group)-1, 2*int(sel_group)):
-                svrName = "800" + str(svrN)
+            
+            
+            # choose one of the data server
+            for svrN in range(0, len(groups[sel_group])-1):
+                svrName = groups[sel_group][svrN]
                 self.writeLog("The current data server is " + str(svrName) + "\n")
                 # record new user information into corresponding servers' user information
                 """"
                 svr[sel_server].user_record[user_name] = initial_password
                 """
-                dataServerName = "800" + str(svrN)
+                dataServerName = svrName
                 self.writeLog("from master write to "+dataServerName + "\n")
-                tempClient = xmlrpclib.ServerProxy("http://localhost:"+str(dataServerName)+"/")
+                tempClient = xmlrpclib.ServerProxy(dataServerName)
                 tempClient.writeLog("here!!!")
                 #writeLog(tempClient.system.listMethods())
                 tempClient.modifyUserTable(user_name, initial_password)
@@ -211,9 +232,8 @@ class MasterServer(Thread):
             lock.release_write()
         # return the list of available data server to the clients
         dsvr_list = []
-        for mem in range(0, Num_mem):
-            dsvr = 2 * int(sel_group) - 1 + mem
-            dsvr = "800" + str(dsvr)
+        for mem in range(0, len(groups[sel_group])):
+            dsvr = groups[sel_group][mem]
             dsvr_list.append(dsvr)
         return respond, dsvr_list
         
@@ -225,9 +245,8 @@ class MasterServer(Thread):
         if user_name in group_record:
             groupName = group_record[user_name]
             respond = "Found"
-            for mem in range(0, Num_mem):
-                dsvr = 2 * int(groupName) - 1 + mem
-                dsvr = "800" + str(dsvr)
+            for mem in range(0, len(groups[sel_group])):
+                dsvr = groups[sel_group][mem]
                 dsvr_list.append(dsvr)
             return respond, dsvr_list
         else:
