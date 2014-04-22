@@ -5,6 +5,7 @@ clr.AddReference('IsisLib')
 import Isis 
 from Isis import *
 
+import urllib2
 import xmlrpclib, os, random
 import re,datetime
 from SimpleXMLRPCServer import SimpleXMLRPCServer
@@ -104,6 +105,10 @@ class MasterServer(Thread):
             
             
         # build the server Address for each dataServer
+        response = urllib2.urlopen('http://fighterczy.com/ServerAddress.txt')
+        output = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt",'wb')
+        output.write(response.read())
+        output.close()
         f = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt", 'r')
         line = 1
         groups.append([])
