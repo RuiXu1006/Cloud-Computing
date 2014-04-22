@@ -9,7 +9,7 @@ from Isis import *
 # This file uses RPC method to implement the communcation
 # between single client and single data server
 import xmlrpclib, os, random
-import re
+import re,datetime
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from SocketServer import ThreadingMixIn
@@ -434,7 +434,8 @@ class MultiServer(Thread):
     
     def writeLog(self, log):
         f = open(root_path + "/" + "Running_Log.txt", 'a')
-        f.write(log);
+        f.write(str(datetime.datetime.now()) + "\n")
+        f.write(log)
         f.close()
     
     def run(self):
@@ -467,3 +468,4 @@ svr = MultiServer(id);
 svr.start()
 
 IsisSystem.WaitForever()
+

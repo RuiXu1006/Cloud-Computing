@@ -6,7 +6,7 @@ import Isis
 from Isis import *
 
 import xmlrpclib, os, random
-import re
+import re,datetime
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from SocketServer import ThreadingMixIn
@@ -23,14 +23,18 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 
 # total number of server
 serverNum = 9
+# the data servers in a group
+Num_mem = 2
 
 # this dictionary is used for serverID for each user
-server_record = dict()
+group_record = dict()
 # This path is only used for listing files and changing directories
 global root_path
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
 root_path = home_dir + "/" + "CloudBox"
+#if not os.path.exists(root_path):
+#    os.mkdir(root_path)
 server_information = root_path + "/" + "Master-Server/Server_information.txt"
 
 # This function is used for testify whether the user has the access to
@@ -89,10 +93,16 @@ class MasterServer(Thread):
             os.mkdir(root_path)
         if not (os.path.exists(root_path + "/" + "Master-Server" +str(self.id))):
             os.mkdir(root_path + "/" + "Master-Server" + str(self.id))
+        if not (os.path.exists(root_path + "/" + "Running_Log.txt")):
+            f = open(root_path + "/" + "Running_Log.txt", 'w+')
+            f.close()
+        else:
+            f = open(root_path + "/" + "Running_Log.txt", 'r')
+            f.close()
         lock.release_write()
 
     # Build server record information when masterserver establishes
-    def build_server_record(self):
+    def build_group_record(self):
     # Using lock to synchronize the operation about server record
         global lock
         lock.acquire_write()
@@ -111,8 +121,8 @@ class MasterServer(Thread):
             for index in range(0, len(content_buffer)):
                 if ( index > 0 ) and ( content_buffer[index-1] == "Username"):
                     user_name = content_buffer[index]
-                if ( index > 0 ) and ( content_buffer[index-1] == "ServerID"):
-                    server_record[user_name] = content_buffer[index]
+                if ( index > 0 ) and ( content_buffer[index-1] == "GroupID"):
+                    group_record[user_name] = content_buffer[index]
             content = f.readline()
         lock.release_write()
 
@@ -126,69 +136,71 @@ class MasterServer(Thread):
 
 # Selecting server based on the size of each server, and select the one which has the
 # least size
-    def select_server(self):
+    def select_group(self):
         minNum = 100000000000L
-        svrName = 1
-        for item in range(1, serverNum):
-            temp = self.getdirsize(root_path + "/" + str(item))
-            self.writeLog( "There are %.3f" % (temp)+ "byte in the %d folder" % (item)+"\n")
+        grpName = 1
+        for item in range(1, serverNum, Num_mem):
+            temp = 0
+            for member in range (0, Num_mem):
+                temp = temp + self.getdirsize(root_path + "/" + str(item + member))
+                #self.writeLog( "There are %.3f" % (temp)+ "byte in the %d folder" % (item)+"\n")
+            self.writeLog( "There are %.3f" % (temp) + "byte in the %d group" % (item) + "\n")
             # if current foler is the minimum one, record it
             if ( temp < minNum ):
                 minNum = temp
-                svrName = item
-        print ("From server - " + str(svrName))
-        return svrName
+                grpName = int(item/Num_mem) + 1
+        self.writeLog ("Selecting group " + str(grpName) + "\n")
+        return grpName
 
 
     def getRandom(self, sel_server):
         return random.randint((sel_server-1)/2*2+1, (sel_server-1)/2*2+2)
 
-    
     # write master-server-user-table separately
-    def writeServerInfo(self, user_name, svrID):
-        server_record[user_name] = svrID
+    def writeServerInfo(self, user_name, grpID):
+        group_record[user_name] = grpID
         f = open(server_information, 'a')
-        content = "Username: " + user_name + "    " + "ServerID: " + svrID
+        content = "Username: " + user_name + "    " + "GroupID: " + grpID + "\n"
         f.write(content)
         f.close()
+        self.group.Reply(1)
+        return
 
-    def writeServerInfo_cmd(self, user_name, svrID):
+    def writeServerInfo_cmd(self, user_name, grpID):
         respond = True
         res = []
-        nr = self.group.OrderedQuery(Group.ALL, 0, user_name, svrID, EOLMarker(), res)
+        nr = self.group.OrderedQuery(Group.ALL, 0, user_name, grpID, EOLMarker(), res)
         for reply in res:
             if (reply == -1):
                 respond = False
                 break
         return respond
 
-
-        
 # Sign up new user
-    def sign_up1(self, user_name, password):
+    def sign_up(self, user_name, password):
     # Firstly, make sure that the user_name doesn't exist
         #print "here"
         global lock, serverNum, svr
         lock.acquire_write()
-        if user_name in server_record:
+        if user_name in group_record:
             respond = "Error: This username has been used."
             svrName = 0
         # add the user_name and initial password into corresponding user_record of each server
         else:
             initial_password = str(password)
             respond = "Sign up successfully!"
-            sel_server = self.select_server()
-            for svrN in range((sel_server-1)/2*2+1, (sel_server-1)/2*2+2):
+            sel_group = self.select_group()
+            # record server information into global server information file
+            self.writeServerInfo_cmd(user_name, str(sel_group))
+            for svrN in range(2*int(sel_group)-1, 2*int(sel_group)):
                 svrName = "800" + str(svrN)
-                
-                # record server information into global server information file
-                self.writeServerInfo_cmd(user_name, str(svrName))
+                self.writeLog("The current data server is " + str(svrName) + "\n")
                 # record new user information into corresponding servers' user information
                 """"
                 svr[sel_server].user_record[user_name] = initial_password
                 """
                 dataServerName = "800" + str(svrN)
-                self.writeLog("from master write to "+dataServerName)
+                self.writeLog("from master write to "+dataServerName + "\n")
                 tempClient = xmlrpclib.ServerProxy("http://localhost:"+str(dataServerName)+"/")
                 tempClient.writeLog("here!!!")
                 #writeLog(tempClient.system.listMethods())
@@ -196,38 +208,46 @@ class MasterServer(Thread):
                 tempClient = None
                 self.writeLog("start write user_info!\n")
 
-
             lock.release_write()
-            svrname = self.getRandom(sel_server)
-        return respond, svrName
+        # return the list of available data server to the clients
+        dsvr_list = []
+        for mem in range(0, Num_mem):
+            dsvr = 2 * int(sel_group) - 1 + mem
+            dsvr = "800" + str(dsvr)
+            dsvr_list.append(dsvr)
+        return respond, dsvr_list
         
         
 # Client will connect master-server to get the corresponding port
-    def query_server(self, user_name):
+    def query_group(self, user_name):
+        dsvr_list = []
     # First make sure that the user_name exists
-        if user_name in server_record:
-            svrName = server_record[user_name]
+        if user_name in group_record:
+            groupName = group_record[user_name]
             respond = "Found"
-            return respond, svrName
+            for mem in range(0, Num_mem):
+                dsvr = 2 * int(groupName) - 1 + mem
+                dsvr = "800" + str(dsvr)
+                dsvr_list.append(dsvr)
+            return respond, dsvr_list
         else:
-            svrName = "8000"
             respond = "Not found"
-            return respond, svrName
+            return respond, dsvr_list
+
     def writeLog(self, log):
         f = open(root_path + "/" + "Running_Log.txt", 'a')
-        f.write(log);
+        f.write(str(datetime.datetime.now()) + "\n")
+        f.write(log)
         f.close()
 
     def run(self):
-        f = open(root_path + "/" + "Running_Log.txt", 'w')
-        f.close()
         self.masterserver = ThreadXMLRPCServer(("localhost", 8000+self.id*1000), allow_none=True)
         print "Master-Server has been established!"
         self.build_up(root_path)
-        self.build_server_record()
+        self.build_group_record()
         self.masterserver.register_introspection_functions()
-        self.masterserver.register_function(self.sign_up1, "sign_up")
-        self.masterserver.register_function(self.query_server, "query_server")
+        self.masterserver.register_function(self.sign_up, "sign_up")
+        self.masterserver.register_function(self.query_group, "query_server")
         self.masterserver.serve_forever()
 
 
@@ -242,3 +262,4 @@ master_svr = MasterServer(id);
 master_svr.start()
 
 IsisSystem.WaitForever()
+
