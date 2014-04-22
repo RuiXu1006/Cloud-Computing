@@ -5,7 +5,7 @@ import random
 # Get the home directory
 home_dir = os.path.expanduser("~")
 # When setting up the client, build corresponding files
-root_path = home_dir + "/" + "LocalBox"
+root_path = home_dir + "/" + "LocalBox" 
 if not (os.path.exists(root_path)):
     os.mkdir(root_path)
 
@@ -27,10 +27,43 @@ global work_path
 global rel_path
 global work_key
 user_name = ""
+svr_list = []
 print "Note: At the beginning, you should login in firstly!"
 
-chooseMaster = random.randint(0,1)
+# This function is used for selecting data server from clients side
+def select_dserver():
+    if (os.path.exists(root_path + "/" +user_name + "/svrName.txt")):
+        print "From client - Local record exists"
+        f = open(root_path + "/" + user_name + "/svrName.txt", 'r')
+        # Store all valid data server names in the list
+        svrName = f.readline()
+        while (svrName):
+            svrName = svrName.rstrip('\n')
+            print svrName
+            # check whether the server port is correct or not
+            if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
+                print "This server name is not valid"
+            else:
+                svr_list.append(svrName)
+            svrName = f.readline()
+        if len(svr_list) != 0:
+            local_found = True
+        else:
+            return 0;
+    else:
+        local_found = False
 
+    # if there are valid data server in the list, random selects among them
+    if local_found:
+        #print svr_list
+        svr_index = random.randint(0, 100000000)
+        svr_index = svr_index % len(svr_list)
+        #print svr_index
+        svrName = svr_list[svr_index]
+        print "The selected data serve is " + str(svrName)
+        return int(svrName)
+    else:
+        return 0;
 while True:
         # Ask clients to select which function will be used
     function = raw_input("Please enter the function name you want:")
@@ -62,25 +95,22 @@ while True:
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        if (chooseMaster == 0):
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")
-        else:
-            client = xmlrpclib.ServerProxy("http://localhost:9000/")
-            
-        if (os.path.exists(root_path+"/"+user_name+"/svrName.txt")):
-            print "From client - user exists"
-            f = open(root_path+"/"+user_name+"/svrName.txt", 'r')
-            svrName = f.readline()
-            print svrName
-        # check whether the server port is correct or not
-        if (int(svrName) <= 8000) or (int(svrName) > (8000 + svrNum)):
-            local_found = False
-        else:
-            local_found = True
+        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        svrName = select_dserver()
         # if not found effective server port in local file, ask for master server
-        if not local_found:
-            svrName = client.query_server(user_name)
-            
+        if svrName == 0:
+            respond, svr_list = client.query_server(user_name)
+            print respond
+            print svr_list
+            print "Get the list from master-server"
+            if respond == "Found":
+                f = open(root_path+"/"+user_name+"/svrName.txt", 'w+')
+                for index in range(0, len(svr_list)):
+                    content = str(svr_list[index])
+                    f.write(content + "\n")
+                f.close()
+            svrName = select_dserver()
+
         client = xmlrpclib.ServerProxy("http://localhost:"+str(svrName)+"/")
         #print user_name + " || "+ password
         respond, svrName = client.login_in(user_name, password)
@@ -99,9 +129,9 @@ while True:
             user_folder = root_path + "/" + user_name
             if not (os.path.exists(user_folder)):
                 os.mkdir(user_folder)
-            f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
-            f.write(str(svrName))
-            f.close()
+            #f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
+            #f.write(str(svrName))
+            #f.close()
 
             work_path = user_folder
 
@@ -164,10 +194,7 @@ while True:
 
 # call sign_up function to sign up in the data server
     elif state == 5:
-        if (chooseMaster == 0):
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")
-        else:
-            client = xmlrpclib.ServerProxy("http://localhost:9000/")
+        client = xmlrpclib.ServerProxy("http://localhost:8000/")
         
         randNum = random.randint(1,svrNum-1)
 #         print "the randnum is" + str(randNum)
@@ -176,9 +203,9 @@ while True:
         while True:
             user_name = raw_input("Please enter the username you want:")
             password  = raw_input("Please enter the password you want:")
-            initial_password, svrName = client.sign_up(user_name, password)
+            initial_password, svr_list = client.sign_up(user_name, password)
             print initial_password
-            print svrName
+            print svr_list
             if initial_password != "Error: This username has been used.":
             # build local folder for new user
                 
@@ -186,8 +213,9 @@ while True:
                 if not (os.path.exists(new_dir)):
                     os.mkdir(new_dir)
                 f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
-                content = str(svrName)
-                f.write(content)
+                for index in range(0, len(svr_list)):
+                    content = str(svr_list[index])
+                    f.write(content + "\n")
                 f.close()
                 break
             else:
@@ -243,5 +271,6 @@ while True:
 # if the function is unrecognized, print Error information
     else:
         print "From client - Unrecognized function, please enter again!"
+
 
 
