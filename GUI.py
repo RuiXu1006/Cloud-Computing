@@ -53,17 +53,23 @@ class simpleapp_wx(wx.Frame):
 # Panel for sign up or login
 class InitialPanel(wx.Panel):
     def __init__(self,parent):
-        wx.Panel.__init__(self, parent=parent, size=(500,300), style=wx.ALIGN_CENTER)
+        wx.Panel.__init__(self, parent=parent, size=(400,350), style=wx.ALIGN_CENTER)
     	sizer = wx.BoxSizer(wx.VERTICAL)
     	
-    	# Sign up
+        #l Logo
+        self.logo = wx.Image('logo.png', wx.BITMAP_TYPE_ANY)
+        #self.logo = self.logo.Scale(300, 187)
+        self.imageCtrl = wx.StaticBitmap(self, wx.ID_ANY, wx.BitmapFromImage(self.logo))
+        sizer.Add(self.imageCtrl, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+        
+        # Sign up
     	sign_up = wx.Button(self,-1,label="Sign up", size=(150,20))
-        sizer.Add(sign_up, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP, border=25)
+        sizer.Add(sign_up, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP, border=15)
         self.Bind(wx.EVT_BUTTON, self.Sign_upClick, sign_up)
         
     	# Log in
     	log_in = wx.Button(self,-1,label="Log in", size=(150,20))
-        sizer.Add(log_in, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP, border=25)
+        sizer.Add(log_in, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP, border=15)
         self.Bind(wx.EVT_BUTTON, self.Log_inClick, log_in)
         
         self.SetSizer(sizer)
