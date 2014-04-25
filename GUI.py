@@ -218,37 +218,25 @@ class SignupPanel(wx.Panel):
 class functionMenuBar(wx.MenuBar):
     def __init__(self):
     	wx.MenuBar.__init__(self)
-    	
-        fileMenu = wx.Menu()
-        
-        upload = wx.MenuItem(fileMenu,wx.ID_ANY, 'Upload')
-        fileMenu.AppendItem(upload)
-        self.Bind(wx.EVT_MENU, self.UploadClick, upload)
-        
-        self.Append(fileMenu, 'File')
         
         userMenu = wx.Menu() 
-        change_pass = wx.MenuItem(fileMenu,wx.ID_ANY, 'Change password')
+        change_pass = wx.MenuItem(userMenu,wx.ID_ANY, 'Change password')
         userMenu.AppendItem(change_pass)
         self.Bind(wx.EVT_MENU, self.Change_passClick, change_pass)
         
-        self.Append(userMenu, 'User')
+        logout = wx.MenuItem(userMenu,wx.ID_ANY, 'Log out')
+        userMenu.AppendItem(logout)
+        self.Bind(wx.EVT_MENU, self.Log_outClick, logout)
         
-    # Individual panels for each function    
-    def UploadClick(self,event):
-        filePicker = wx.FileDialog(self, defaultDir=os.getcwd(), defaultFile="", style=wx.OPEN)
-        filePicker.ShowModal()
-        file_location = filePicker.GetPath()
-        file_name = filePicker.GetFilename()
-        with open(file_location, "rb") as handle:
-            transmit_data = xmlrpclib.Binary(handle.read())
-            respond = self.GetParent().client.upload_files(self.GetParent().username, file_name, transmit_data, self.GetParent().key)
-        self.GetParent().listPanel.listbox.Append(file_name)
-        self.GetParent().GetSizer().Layout()
+        self.Append(userMenu, 'User')       
     
     def Change_passClick(self,event):
         self.GetParent().HideAll()
         self.GetParent().changePassPanel.Show()
+        self.GetParent().GetSizer().Layout()
+    
+    def Log_outClick(self,event):
+        #TODO: actions for logging out
         self.GetParent().GetSizer().Layout()
 
 # class WelcomePanel(wx.Panel):    
@@ -277,14 +265,17 @@ class ListPanel(wx.Panel):
         btnPanel = wx.Panel(self, -1)
         vbox = wx.BoxSizer(wx.VERTICAL)
         
+        upload = wx.Button(btnPanel, -1, 'Upload', size = (90,30))
         download = wx.Button(btnPanel, -1, 'Download', size = (90, 30))
         delete = wx.Button(btnPanel, -1, 'Delete', size = (90, 30))
         
+        self.Bind(wx.EVT_BUTTON, self.OnUpload, upload)
         self.Bind(wx.EVT_BUTTON, self.OnDownload, download)
         self.Bind(wx.EVT_BUTTON, self.OnDelete, delete)
         
         vbox.Add((-1, 20))
-        vbox.Add(download)
+        vbox.Add(upload)
+        vbox.Add(download, 0, wx.TOP, 5)
         vbox.Add(delete, 0, wx.TOP, 5)
         
         btnPanel.SetSizer(vbox)
@@ -292,6 +283,17 @@ class ListPanel(wx.Panel):
         
         self.SetSizer(hbox)
     
+    def OnUpload(self, event):
+        filePicker = wx.FileDialog(self, defaultDir=os.getcwd(), defaultFile="", style=wx.OPEN)
+        filePicker.ShowModal()
+        file_location = filePicker.GetPath()
+        file_name = filePicker.GetFilename()
+        with open(file_location, "rb") as handle:
+            transmit_data = xmlrpclib.Binary(handle.read())
+            respond = self.GetParent().client.upload_files(self.GetParent().username, file_name, transmit_data, self.GetParent().key)
+        self.GetParent().listPanel.listbox.Append(file_name)
+        self.GetParent().GetSizer().Layout()
+        
     def OnDownload(self, event):
         username = self.GetParent().username
         home_dir = os.path.expanduser("~")
