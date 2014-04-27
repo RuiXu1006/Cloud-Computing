@@ -85,6 +85,7 @@ class MultiServer(Thread):
         self.group.RegisterHandler(3, Action[str, str, str](self.change_password))
         self.group.RegisterHandler(4, Action[str, str](self.update_user_record))
         self.group.RegisterHandler(5, Action[str, str](self.modifyUserTable))
+        self.group.RegisterHandler(6, Action[str, str](self.log_out))
         self.group.Join()
     # Security check function will check whether key matches with given user_name
     def security_check(self,user_name, key):
@@ -228,10 +229,28 @@ class MultiServer(Thread):
             else:
                 respond = "The password doesn't match with the given username"
                 svrName = 0
+        # if not found in the memory, ask the user information in the disk
         else:
-            print "user name error"
-            respond = "The username doesn't exist"
-            svrName = 0
+            # refresh user_record
+            self.user_record = dict()
+            self.build_user_record()
+            # if the user stores in the 
+            if user_name in self.user_record.keys():
+            # Then check whether the password corresponds or not
+                if password == self.user_record[user_name]:
+                    access_key = random.randint(0, 10000000)
+                    access_key = str(access_key)
+                    self.update_keytable_cmd(user_name, access_key)
+                    respond = "Login in successfully#" + access_key
+                    current_user = user_name
+                    svrName = "800" + str(self.id)
+                else:
+                    respond = "The password doesn't match with the given username"
+                    svrName = 0
+            else:
+                print "user name error"
+                respond = "The username doesn't exist"
+                svrName = 0
         lock.release_write()
         return respond, svrName
 
@@ -407,6 +426,34 @@ class MultiServer(Thread):
                 break
         return respond
     
+    def log_out_cmd(self, user_name, key):
+        reply = True
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 6, user_name, key, EOLMarker(), res)
+        for res_g in res:
+            if ( res_g == -1 ):
+                reply = False
+                break
+        if reply:
+            respond = "Log out successfully!"
+        else:
+            respond = "Log out unsuccessfully!"
+        return respond 
+
+    def log_out(self, user_name, key):
+        if self.security_check(user_name, key) == "denied access":
+            self.group.Reply(-1)
+            return
+        else:
+            if user_name in self.user_record:
+                del self.user_record[user_name]
+                del self.key_table[key]
+                self.group.Reply(1)
+                return
+            else:
+                self.group.Reply(-1)
+                return
+
     def modifyUserTable_cmd(self,user_name, initial_password):
         respond = True
         res = []
@@ -431,7 +478,11 @@ class MultiServer(Thread):
         os.mkdir(new_dir)
         self.group.Reply(1)
         return
-    
+
+    # This function is used for proving that the data server currently works
+    def query_work(self, str):
+        return True
+
     def writeLog(self, log):
         f = open(root_path + "/" + "Running_Log.txt", 'a')
         f.write(str(datetime.datetime.now()) + "\n")
@@ -457,6 +508,8 @@ class MultiServer(Thread):
         server[self.id].register_function(self.download_files, "download_files")
         server[self.id].register_function(self.upload_files_cmd, "upload_files")
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
+        server[self.id].register_function(self.log_out_cmd, "log_out")
+        server[self.id].register_function(self.query_work,"query_work")
         server[self.id].serve_forever()
 
 lock = ReadWriteLock()
@@ -468,4 +521,5 @@ svr = MultiServer(id);
 svr.start()
 
 IsisSystem.WaitForever()
+
 
