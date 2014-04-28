@@ -205,9 +205,11 @@ class MasterServer(Thread):
         #print "here"
         global lock, serverNum, svr
         lock.acquire_write()
+        user_name_used = False
+        # Firstly make sure that this username doesn't exist
         if user_name in group_record:
             respond = "Error: This username has been used."
-            svrName = 0
+            user_name_used = True
         # add the user_name and initial password into corresponding user_record of each server
         else:
             initial_password = str(password)
@@ -237,9 +239,12 @@ class MasterServer(Thread):
             lock.release_write()
         # return the list of available data server to the clients
         dsvr_list = []
-        for mem in range(0, len(groups[sel_group])):
-            dsvr = groups[sel_group][mem]
-            dsvr_list.append(dsvr)
+        if not user_name_used:
+            for mem in range(0, len(groups[sel_group])):
+                dsvr = groups[sel_group][mem]
+                dsvr_list.append(dsvr)
+        else:
+            dsvr_list = ['none']
         return respond, dsvr_list
         
         
@@ -258,6 +263,33 @@ class MasterServer(Thread):
             respond = "Not found"
             return respond, dsvr_list
 
+    # When clients fails to connect with data servers, it will request the 
+    # master server to update current available data servers based on the 
+    # user-name
+    def update_dsvr(self, user_name):
+        self.writeLog("Enter the phase of update_dsvr\n")
+        dsvr_list = []
+        # firstly, the user_name need to exist in the current record
+        if user_name in group_record:
+            groupName = group_record[user_name]
+        # Then query the data servers in the same group in one by one, if
+        # there is no reply, mark this data server is unavailable
+            for mem in range(0, Num_mem):
+                dsvr = 2 * int(groupName) - 1 + mem
+                dsvr = "http://localhost:" + "800" + str(dsvr) + "/"
+                tempClient = xmlrpclib.ServerProxy(dsvr)
+                try:
+                    respond = tempClient.query_work("Y/N")
+                    if respond == True:
+                        dsvr_list.append(dsvr)
+                except:
+                    self.writeLog("Data server " + str(dsvr) + "failed")
+            return respond, dsvr_list
+        else:
+           respond = "The user_name doesn't exist, you need to sign up firstly"
+           dsvr_list = []
+           return respond, dsvr_list
+
     def writeLog(self, log):
         f = open(root_path + "/" + "Running_Log.txt", 'a')
         f.write(str(datetime.datetime.now()) + "\n")
@@ -272,6 +304,7 @@ class MasterServer(Thread):
         self.masterserver.register_introspection_functions()
         self.masterserver.register_function(self.sign_up, "sign_up")
         self.masterserver.register_function(self.query_group, "query_server")
+        self.masterserver.register_function(self.update_dsvr, "update_dsvr")
         self.masterserver.serve_forever()
 
 

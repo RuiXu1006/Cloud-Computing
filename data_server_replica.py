@@ -281,8 +281,9 @@ class MultiServer(Thread):
             respond = "You have no right to use this function"
         else:
             current_user = self.security_check(user_name, key)
-    # get the work path from the information sent by client
+            # get the work path from the information sent by client
             work_path = root_path + "/" + str(self.id) +"/" + current_user + rel_path
+            #self.writeLog(str(work_path) + "\n")
     # Firstly, check if that this path exist or not
         if os.path.exists(work_path):
     # Then make sure that is directory
