@@ -523,7 +523,7 @@ class MultiServer(Thread):
         #peer_server = xmlrpclib.ServerProxy(peer_addr)
         #peer_server.copyFile(self_addr)
 
-        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
+        
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
@@ -541,6 +541,7 @@ class MultiServer(Thread):
         server[self.id].register_function(self.query_work,"query_work")
         #server[self.id].register_function(self.copyFile,"copyFile")
         #server[self.id].register_function(self.recvFile,"recvFile")
+        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         server[self.id].serve_forever()
 
 lock = ReadWriteLock()
