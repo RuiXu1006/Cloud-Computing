@@ -239,7 +239,7 @@ class MasterServer(Thread):
                 tempClient = None
                 self.writeLog("start write user_info!\n")
 
-            lock.release_write()
+        lock.release_write()
         # return the list of available data server to the clients
         dsvr_list = []
         if not user_name_used:
