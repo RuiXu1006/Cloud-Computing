@@ -296,8 +296,12 @@ class MasterServer(Thread):
         f.write(log)
         f.close()
 
+    def getPeer(self):
+        #return address of node in the same group
+        return 1
+
     def run(self):
-        self.masterserver = ThreadXMLRPCServer(("localhost", 8000+self.id*1000), allow_none=True)
+        self.masterserver = ThreadXMLRPCServer(("localhost", 8000+self.id*100), allow_none=True)
         print "Master-Server has been established!"
         self.build_up(root_path)
         self.build_group_record()
@@ -305,6 +309,7 @@ class MasterServer(Thread):
         self.masterserver.register_function(self.sign_up, "sign_up")
         self.masterserver.register_function(self.query_group, "query_server")
         self.masterserver.register_function(self.update_dsvr, "update_dsvr")
+        self.masterserver.register_function(self.getPeer, "getPeer")
         self.masterserver.serve_forever()
 
 

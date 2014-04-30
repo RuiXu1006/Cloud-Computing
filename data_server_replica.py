@@ -489,12 +489,34 @@ class MultiServer(Thread):
         f.write(str(datetime.datetime.now()) + "\n")
         f.write(log)
         f.close()
+
+    #def copyFile(self, addr):
+    #    dest_server = xmlrpclib.ServerProxy("dest\server\addr")
+    #    sourcePath = "source\path"
+    #    destPath = "dest\path"
+    #    for root, dirs, files in os.walk(sourcePath):
+    #        dest = root.replace(sourcePath, '')
+
+    #        for f in files:
+    #            with open(f, "rb") as handle:
+    #                fileData = xmlrpclib.Binary(handle.read())
+    #                dest_server.recvFile(f, fileData)
     
+    #def recvFile(self, fileLoc, fileData):
+    #    with open(fileLoc, "w+") as handle:
+    #            handle.write(fileData)
+
     def run(self):
         global server
         server[self.id] = ThreadXMLRPCServer(("localhost", 8000+self.id), allow_none=True)
         
         #print "port %d" %(self.id+8000) + " is established!"
+        #connect to master server to obtain server in the same group
+        #master_server = xmlrpclib.ServerProxy("master_server_address")
+        #peer_addr = master_server.getPeer()
+        #peer_server = xmlrpclib.ServerProxy(peer_addr)
+        #peer_server.copyFile(self_addr)
+
         self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         self.build_up(root_path)
         self.build_user_record()
@@ -511,6 +533,8 @@ class MultiServer(Thread):
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
         server[self.id].register_function(self.log_out_cmd, "log_out")
         server[self.id].register_function(self.query_work,"query_work")
+        #server[self.id].register_function(self.copyFile,"copyFile")
+        #server[self.id].register_function(self.recvFile,"recvFile")
         server[self.id].serve_forever()
 
 lock = ReadWriteLock()
