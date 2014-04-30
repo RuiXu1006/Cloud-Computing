@@ -23,6 +23,9 @@ from System import Action
 class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
+
+IPAddr = "localhost"
+
 # total number of server
 serverNum = 9
 
@@ -70,6 +73,8 @@ class MultiServer(Thread):
     def __init__(self,id):
         Thread.__init__(self)
         self.id =id
+        self.IPAddr = IPAddr
+        self.svrName = "http://"+self.IPAddr+":"+ str(8000+self.id)+"/"
         self.user_information = root_path + "/" + str(self.id) + "/" + "User_information.txt"
         self.running_log = root_path + "/" + str(self.id) + "/" + "Running_Log.txt"
         # This dictionary is used for storing user information in data server
@@ -225,7 +230,7 @@ class MultiServer(Thread):
                 self.update_keytable_cmd(user_name, access_key)
                 respond = "Login in successfully#" + access_key
                 current_user = user_name
-                svrName = "800" + str(self.id)
+                #svrName = "800" + str(self.id)
             else:
                 respond = "The password doesn't match with the given username"
                 svrName = 0
@@ -243,7 +248,7 @@ class MultiServer(Thread):
                     self.update_keytable_cmd(user_name, access_key)
                     respond = "Login in successfully#" + access_key
                     current_user = user_name
-                    svrName = "800" + str(self.id)
+                    #svrName = "800" + str(self.id)
                 else:
                     respond = "The password doesn't match with the given username"
                     svrName = 0
@@ -252,7 +257,8 @@ class MultiServer(Thread):
                 respond = "The username doesn't exist"
                 svrName = 0
         lock.release_write()
-        return respond, svrName
+        self.writeLog("haha")
+        return respond, self.svrName
 
     # This function is used for listing files in the data servers
 
@@ -508,7 +514,7 @@ class MultiServer(Thread):
 
     def run(self):
         global server
-        server[self.id] = ThreadXMLRPCServer(("localhost", 8000+self.id), allow_none=True)
+        server[self.id] = ThreadXMLRPCServer((IPAddr, 8000+self.id), allow_none=True)
         
         #print "port %d" %(self.id+8000) + " is established!"
         #connect to master server to obtain server in the same group

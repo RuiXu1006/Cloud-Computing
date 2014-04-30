@@ -11,6 +11,10 @@ if not (os.path.exists(root_path)):
 
 # find which server to put data
 
+
+# the IPAddress of MasterServers
+IPAddr = "localhost"
+
 # the total number of server
 svrNum = 9
 
@@ -29,6 +33,12 @@ global work_key
 user_name = ""
 svr_list = []
 print "Note: At the beginning, you should login in firstly!"
+
+
+# this function is used for random select from master server
+def select_master():
+    ret = "http://" + IPAddr+ ":" + str(8000+random.randint(0,1)*100) +"/"
+    return ret
 
 # This function is used for selecting data server from clients side
 def select_dserver():
@@ -99,7 +109,7 @@ while True:
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        client = xmlrpclib.ServerProxy(select_master())
         svrName = select_dserver()
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
@@ -118,11 +128,12 @@ while True:
         # If unable to connect with data server, the client will ask the master server
         # to update avaible data server list, and re-login again
         try:
+            #print "HHHHH" + str(svrName)
             client = xmlrpclib.ServerProxy(str(svrName))
             #print user_name + " || "+ password
             respond, svrName = client.login_in(user_name, password)
-            svrName = "http://localhost:" + str(svrName) + "/"
-            print respond, svrName
+            #svrName = "http://" + IPAddr + ":" + str(svrName) + "/"
+            #print respond, svrName
             respond_buffer = respond.split('#')
             respond = respond_buffer[0]
             print svrName
@@ -143,7 +154,7 @@ while True:
         except:
             print "Unable to connect with data server"
             # Then client asks master servers to update current available data server list
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")
+            client = xmlrpclib.ServerProxy(select_master())
             respond, svr_list = client.update_dsvr(user_name)
             print svr_list
             # Then update local available data server list
@@ -156,7 +167,7 @@ while True:
             svrName = select_dserver()
             client = xmlrpclib.ServerProxy(str(svrName))
             respond, svrName = client.login_in(user_name, password)
-            svrName = "http://localhost:" + str(svrName) + "/"
+            #svrName = "http://" + IPAddr + ":" + str(svrName) + "/"
             print respond, svrName
             respond_buffer = respond.split('#')
             respond = respond_buffer[0]
@@ -246,7 +257,7 @@ while True:
 # call sign_up function to sign up in the data server
     elif state == 5:
         try:
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")        
+            client = xmlrpclib.ServerProxy(select_master())        
             randNum = random.randint(1,svrNum-1)
 #         print "the randnum is" + str(randNum)
 #         client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")

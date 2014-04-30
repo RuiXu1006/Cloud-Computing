@@ -22,6 +22,9 @@ IsisSystem.Start()
 class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
+
+IPAddr = "localhost"
+
 # total number of server
 serverNum = 9
 # the data servers in a group
@@ -202,7 +205,7 @@ class MasterServer(Thread):
 # Sign up new user
     def sign_up(self, user_name, password):
     # Firstly, make sure that the user_name doesn't exist
-        #print "here"
+        self.writeLog("MasterServer" + str(self.id)+" is handling sign_up")
         global lock, serverNum, svr
         lock.acquire_write()
         user_name_used = False
@@ -275,8 +278,10 @@ class MasterServer(Thread):
         # Then query the data servers in the same group in one by one, if
         # there is no reply, mark this data server is unavailable
             for mem in range(0, Num_mem):
-                dsvr = 2 * int(groupName) - 1 + mem
-                dsvr = "http://localhost:" + "800" + str(dsvr) + "/"
+                dsvr = groups[int(groupName)][mem]
+                self.writeLog(dsvr)
+                #dsvr = 2 * int(groupName) - 1 + mem
+                #dsvr = "http://" + IPAddr + ":" + "800" + str(dsvr) + "/"
                 tempClient = xmlrpclib.ServerProxy(dsvr)
                 try:
                     respond = tempClient.query_work("Y/N")
@@ -301,7 +306,7 @@ class MasterServer(Thread):
         return 1
 
     def run(self):
-        self.masterserver = ThreadXMLRPCServer(("localhost", 8000+self.id*100), allow_none=True)
+        self.masterserver = ThreadXMLRPCServer((IPAddr, 8000+self.id*100), allow_none=True)
         print "Master-Server has been established!"
         self.build_up(root_path)
         self.build_group_record()
