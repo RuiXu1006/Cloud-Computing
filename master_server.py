@@ -87,6 +87,7 @@ class MasterServer(Thread):
         self.group = Group("group"+"_master")
         # Register Handlers in the group
         self.group.RegisterHandler(0, Action[str, str](self.writeServerInfo))
+        self.group.RegisterHandler(1, Action[str, str](self.register_dsvr))
         self.group.Join()
 
     # Build directory for master-server at the beginning
@@ -99,11 +100,21 @@ class MasterServer(Thread):
             os.mkdir(root_path)
         if not (os.path.exists(root_path + "/" + "Master-Server" +str(self.id))):
             os.mkdir(root_path + "/" + "Master-Server" + str(self.id))
+
+        # Building running log file
         if not (os.path.exists(root_path + "/" + "Running_Log.txt")):
             f = open(root_path + "/" + "Running_Log.txt", 'w+')
             f.close()
         else:
             f = open(root_path + "/" + "Running_Log.txt", 'r')
+            f.close()
+
+        # Building data server information file
+        if not (os.path.exists(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt")):
+            f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'w+')
+            f.close()
+        else:
+            f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt", 'r')
             f.close()
             
             
@@ -239,7 +250,7 @@ class MasterServer(Thread):
                 tempClient = None
                 self.writeLog("start write user_info!\n")
 
-        lock.release_write()
+            lock.release_write()
         # return the list of available data server to the clients
         dsvr_list = []
         if not user_name_used:
@@ -301,6 +312,22 @@ class MasterServer(Thread):
         f.write(log)
         f.close()
 
+    # This function is used for registering the data-server information in master server
+    def register_dsvr(self, ip_address, id):
+        global lock
+        lock.acquire_write()
+        f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'a')
+        f.write("IP_Address:" + str(ip_address) + "          ")
+        group_id = (int(id)+1)/2
+        f.write("Group_ID:" + str(group_id) + "\n")
+        f.close()
+        lock.release_write()
+
+    def register_dsvr_cmd(self, ip_address, id):
+        respond = "Register successfully"
+        nr = self.group.OrderedSend(1, ip_address, id)
+        return respond
+
     def getPeer(self):
         #return address of node in the same group
         return 1
@@ -314,6 +341,7 @@ class MasterServer(Thread):
         self.masterserver.register_function(self.sign_up, "sign_up")
         self.masterserver.register_function(self.query_group, "query_server")
         self.masterserver.register_function(self.update_dsvr, "update_dsvr")
+        self.masterserver.register_function(self.register_dsvr_cmd, "register_dsvr")
         self.masterserver.register_function(self.getPeer, "getPeer")
         self.masterserver.serve_forever()
 
@@ -329,5 +357,6 @@ master_svr = MasterServer(id);
 master_svr.start()
 
 IsisSystem.WaitForever()
+
 
 

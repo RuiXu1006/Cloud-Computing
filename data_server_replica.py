@@ -91,6 +91,7 @@ class MultiServer(Thread):
         self.group.RegisterHandler(4, Action[str, str](self.update_user_record))
         self.group.RegisterHandler(5, Action[str, str](self.modifyUserTable))
         self.group.RegisterHandler(6, Action[str, str](self.log_out))
+        self.group.RegisterHandler(7, Action[str, str, str, str](self.make_directory))
         self.group.Join()
     # Security check function will check whether key matches with given user_name
     def security_check(self,user_name, key):
@@ -129,6 +130,9 @@ class MultiServer(Thread):
             f = open(self.running_log, 'w+')
         f.close()
         lock.release_write()
+        tmpclient = xmlrpclib.ServerProxy("http://localhost:8000/")
+        ip_address = "http://" + IPAddr + ":800" + str(self.id) + "/"
+        respond = tmpclient.register_dsvr(ip_address, str(self.id))
     
     # send command to all members in the group to prepare for updating their own user_record
     def update_user_record_cmd(self, user_name, password):
@@ -433,6 +437,44 @@ class MultiServer(Thread):
                 break
         return respond
     
+    # This function is used for making directory in the data server
+    def make_directory(self, rel_path, dir_name, user_name, key):
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+            self.group.Reply(-1)
+            return
+        else:
+            current_user = self.security_check(user_name, key)
+            # firstly check whether this directory exists
+            if (os.path.exists(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)):
+                respond = "This directory has existed!"
+                self.group.Reply(0)
+                return
+            else:
+                os.mkdir(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)
+                respond = "Making directory successfully!"
+                self.group.Reply(1)
+                return
+
+    def make_directory_cmd(self, rel_path, dir_name, user_name, key):
+        reply = 1
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 7, rel_path, dir_name, user_name, key, EOLMarker(), res)
+        for res_g in res:
+            if ( res_g == -1 ):
+                reply = -1
+                break
+            elif ( res_g == 0 ):
+                reply = 0
+                break
+        if reply == 1:
+            respond = "Make directory successfully!"
+        elif reply == -1:
+            respond = "You have no right to use this function"
+        else:
+            respond = "This directory has existed!"
+        return respond
+
     def log_out_cmd(self, user_name, key):
         reply = True
         res = []
@@ -523,7 +565,7 @@ class MultiServer(Thread):
         #peer_server = xmlrpclib.ServerProxy(peer_addr)
         #peer_server.copyFile(self_addr)
 
-        
+        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
@@ -537,11 +579,11 @@ class MultiServer(Thread):
         server[self.id].register_function(self.download_files, "download_files")
         server[self.id].register_function(self.upload_files_cmd, "upload_files")
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
+        server[self.id].register_function(self.make_directory_cmd, "make_directory")
         server[self.id].register_function(self.log_out_cmd, "log_out")
         server[self.id].register_function(self.query_work,"query_work")
         #server[self.id].register_function(self.copyFile,"copyFile")
         #server[self.id].register_function(self.recvFile,"recvFile")
-        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         server[self.id].serve_forever()
 
 lock = ReadWriteLock()
@@ -553,5 +595,8 @@ svr = MultiServer(id);
 svr.start()
 
 IsisSystem.WaitForever()
+
+
+
 
 
