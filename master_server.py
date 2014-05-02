@@ -238,21 +238,23 @@ class MasterServer(Thread):
             
             
             # choose one of the data server
-            for svrN in range(0, len(groups[sel_group])-1):
-                svrName = groups[sel_group][svrN]
-                self.writeLog("The current data server is " + str(svrName) + "\n")
-                # record new user information into corresponding servers' user information
-                """"
-                svr[sel_server].user_record[user_name] = initial_password
-                """
-                dataServerName = svrName
-                self.writeLog("from master write to "+dataServerName + "\n")
-                tempClient = xmlrpclib.ServerProxy(dataServerName)
-                tempClient.writeLog("here!!!")
-                #writeLog(tempClient.system.listMethods())
-                tempClient.modifyUserTable(user_name, initial_password)
-                tempClient = None
-                self.writeLog("start write user_info!\n")
+            for svrN in range(0, len(groups[sel_group])):
+                # Only the first member in the group needs to broadcast all members in the group
+                if svrN == 0:
+                    svrName = groups[sel_group][svrN]
+                    self.writeLog("The current data server is " + str(svrName) + "\n")
+                    # record new user information into corresponding servers' user information
+                    """"
+                    svr[sel_server].user_record[user_name] = initial_password
+                    """
+                    dataServerName = svrName
+                    self.writeLog("from master write to "+dataServerName + "\n")
+                    tempClient = xmlrpclib.ServerProxy(dataServerName)
+                    tempClient.writeLog("here!!!")
+                    #writeLog(tempClient.system.listMethods())
+                    tempClient.modifyUserTable(user_name, initial_password)
+                    tempClient = None
+                    self.writeLog("start write user_info!\n")
 
             lock.release_write()
         # return the list of available data server to the clients
@@ -293,7 +295,7 @@ class MasterServer(Thread):
         # Then query the data servers in the same group in one by one, if
         # there is no reply, mark this data server is unavailable
             for mem in range(0, Num_mem):
-                dsvr = groups[int(groupName)][mem]
+                dsvr = "http://" + IPAddr + ":800" + str(2*int(groupName) - 1 + mem) + "/"
                 self.writeLog(dsvr)
                 #dsvr = 2 * int(groupName) - 1 + mem
                 #dsvr = "http://" + IPAddr + ":" + "800" + str(dsvr) + "/"

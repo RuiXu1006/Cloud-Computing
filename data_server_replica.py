@@ -590,32 +590,23 @@ class MultiServer(Thread):
         f.write(log)
         f.close()
 
-    #def copyFile(self, addr):
-    #    dest_server = xmlrpclib.ServerProxy(addr)
-    #    sourcePath = root_path + "/" + str(self.id) + "/"
-    #    for root, dirs, files in os.walk(sourcePath):
-    #        #dest = root.replace(sourcePath, '')
+    def getFilelist(self):
+        file_list = []
+        sourcePath = root_path + "/" + str(self.id) + "/"
+        for root, dirs, files in os.walk(sourcePath):
+            for f in files:
+                file_list.append(f)
 
+        return file_list
 
-    #        for f in files:
-    #            destPath = os.path.relpath(f, sourcePath)
-    #            #self.writeLog(destPath + "\n")
-    #            self.writeLog(sourcePath + f + "\n")
-    #            with open(sourcePath + f, "rb") as handle:
-    #                self.writeLog("Enter open file\n")
-    #                filedata = xmlrpclib.Binary(handle.read())
-    #                self.writeLog(addr+"\n")
-    #                return f, filedata
-    
-    #def recvFile(self, fileloc, filedata):
-    #    final_loc = root_path + "/" + str(self.id) + "/" + fileloc
-    #    final_loc_buffer = final_loc.split('/')[:-1]
-    #    final_dir = '/'.join(final_loc_buffer)
-    #    if not os.path.exists(final_dir):
-    #        os.makedirs(final_dir)
+    def copyFile(self, fileLoc):
+        sourcePath = root_path + "/" + str(self.id) + "/"
+        with open(sourcePath + fileLoc, "rb") as handle:
+            self.writeLog("Copying file" + sourcePath+fileLoc+'\n')
+            filedata = xmlrpclib.Binary(handle.read())
 
-    #    with open(final_loc, "w+") as handle:
-    #            handle.write(filedata)
+        return filedata
+
 
     def run(self):
         global server
@@ -639,15 +630,27 @@ class MultiServer(Thread):
         server[self.id].register_function(self.delete_directory_cmd, "delete_directory")
         server[self.id].register_function(self.log_out_cmd, "log_out")
         server[self.id].register_function(self.query_work,"query_work")
-        #server[self.id].register_function(self.copyFile,"copyFile")
-        #server[self.id].register_function(self.recvFile,"recvFile")
+        server[self.id].register_function(self.getFilelist,"getFilelist")
+        server[self.id].register_function(self.copyFile,"copyFile")
 
         #connect to master server to obtain server in the same group
         if self.recover:
-            master_server = xmlrpclib.ServerProxy("http://" + IP_Addr + ":8000/")
+            master_server = xmlrpclib.ServerProxy("http://" + IPAddr + ":8000/")
             peer_addr = master_server.getPeer(self.group_num)
             peer_server = xmlrpclib.ServerProxy(peer_addr)
-            peer_server.copyFile("http://" + IP_Addr + ":800" + str(self.id) + "/")
+            file_list = peer_server.getFilelist()
+            for f in file_list:
+                self.writeLog("The original file location is " + f + "\n")
+                fileLoc = root_path + "/" + str(self.id) + "/" + f
+                self.writeLog("The file location is " + fileLoc + "\n")
+                fileDir = '\\'.join(fileLoc.split('\\')[:-1])
+                self.writeLog("The file directory is " + fileDir + "\n")
+                if not os.path.exists(fileDir):
+                    os.makedirs(fileDir)
+                fileData = peer_server.copyFile(f)
+                with open(fileLoc, "wb+") as handle:
+                    handle.write(fileData.data)
+
 
         server[self.id].serve_forever()
 
