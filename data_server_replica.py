@@ -15,6 +15,7 @@ from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from SocketServer import ThreadingMixIn
 import threading
 import time
+import shutil
 from threading import Thread, Lock, Condition
 import random
 from os.path import join, getsize
@@ -70,7 +71,7 @@ class ReadWriteLock:
         self._read_ready.release()
 
 class MultiServer(Thread):
-    def __init__(self,id):
+    def __init__(self, id, recover):
         Thread.__init__(self)
         self.id =id
         self.IPAddr = IPAddr
@@ -83,6 +84,8 @@ class MultiServer(Thread):
         self.key_table = dict()
         # two servers will be assigned into one group
         self.group = Group("group"+str((id+1)/2))
+        self.group_num = (id+1)/2
+        self.recover = recover
         # Register Handlers in the group
         self.group.RegisterHandler(0, Action[str, str, str, str](self.upload_files))
         self.group.RegisterHandler(1, Action[str, str](self.update_keytable))
@@ -92,6 +95,7 @@ class MultiServer(Thread):
         self.group.RegisterHandler(5, Action[str, str](self.modifyUserTable))
         self.group.RegisterHandler(6, Action[str, str](self.log_out))
         self.group.RegisterHandler(7, Action[str, str, str, str](self.make_directory))
+        self.group.RegisterHandler(8, Action[str, str, str, str](self.delete_directory))
         self.group.Join()
     # Security check function will check whether key matches with given user_name
     def security_check(self,user_name, key):
@@ -475,6 +479,54 @@ class MultiServer(Thread):
             respond = "This directory has existed!"
         return respond
 
+    # This function is used for deleting directory
+    def delete_directory(self, rel_path, dir_name, user_name, key):
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+            self.group.Reply(-1)
+            return
+        else:
+            current_user = self.security_check(user_name, key)
+            # firstly check whether this directory exists
+            if not (os.path.exists(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)):
+                respond = "This directory doesn't exist"
+                self.group.Reply(0)
+                return
+            elif not (os.path.isdir(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)):
+                respond = "This is not a directory"
+                self.group.Reply(2)
+                return
+            else:
+                shutil.rmtree(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)
+                respond = "Deleting directory successfully!"
+                self.group.Reply(1)
+                return
+
+    def delete_directory_cmd(self, rel_path, dir_name, user_name, key):
+        reply = 1
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 8, rel_path, dir_name, user_name, key, EOLMarker(), res)
+        for res_g in res:
+            if ( res_g == -1 ):
+                reply = -1
+                break
+            elif ( res_g == 0 ):
+                reply = 0
+                break
+            elif ( res_g == 2 ):
+                reply = 2
+                break
+        if reply == 1:
+            respond = "Deleting directory successfully!"
+        elif reply == -1:
+            respond = "You have no right to use this function"
+        elif reply == 2:
+            respond = "This is not a directory"
+        else:
+            respond = "This directory doesn't exist!"
+        return respond
+
+    # This function is used for users' logging out
     def log_out_cmd(self, user_name, key):
         reply = True
         res = []
@@ -539,32 +591,36 @@ class MultiServer(Thread):
         f.close()
 
     #def copyFile(self, addr):
-    #    dest_server = xmlrpclib.ServerProxy("dest\server\addr")
-    #    sourcePath = "source\path"
-    #    destPath = "dest\path"
+    #    dest_server = xmlrpclib.ServerProxy(addr)
+    #    sourcePath = root_path + "/" + str(self.id) + "/"
     #    for root, dirs, files in os.walk(sourcePath):
-    #        dest = root.replace(sourcePath, '')
+    #        #dest = root.replace(sourcePath, '')
+
 
     #        for f in files:
-    #            with open(f, "rb") as handle:
-    #                fileData = xmlrpclib.Binary(handle.read())
-    #                dest_server.recvFile(f, fileData)
+    #            destPath = os.path.relpath(f, sourcePath)
+    #            #self.writeLog(destPath + "\n")
+    #            self.writeLog(sourcePath + f + "\n")
+    #            with open(sourcePath + f, "rb") as handle:
+    #                self.writeLog("Enter open file\n")
+    #                filedata = xmlrpclib.Binary(handle.read())
+    #                self.writeLog(addr+"\n")
+    #                return f, filedata
     
-    #def recvFile(self, fileLoc, fileData):
-    #    with open(fileLoc, "w+") as handle:
-    #            handle.write(fileData)
+    #def recvFile(self, fileloc, filedata):
+    #    final_loc = root_path + "/" + str(self.id) + "/" + fileloc
+    #    final_loc_buffer = final_loc.split('/')[:-1]
+    #    final_dir = '/'.join(final_loc_buffer)
+    #    if not os.path.exists(final_dir):
+    #        os.makedirs(final_dir)
+
+    #    with open(final_loc, "w+") as handle:
+    #            handle.write(filedata)
 
     def run(self):
         global server
         server[self.id] = ThreadXMLRPCServer((IPAddr, 8000+self.id), allow_none=True)
         
-        #print "port %d" %(self.id+8000) + " is established!"
-        #connect to master server to obtain server in the same group
-        #master_server = xmlrpclib.ServerProxy("master_server_address")
-        #peer_addr = master_server.getPeer()
-        #peer_server = xmlrpclib.ServerProxy(peer_addr)
-        #peer_server.copyFile(self_addr)
-
         self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         self.build_up(root_path)
         self.build_user_record()
@@ -580,10 +636,19 @@ class MultiServer(Thread):
         server[self.id].register_function(self.upload_files_cmd, "upload_files")
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
         server[self.id].register_function(self.make_directory_cmd, "make_directory")
+        server[self.id].register_function(self.delete_directory_cmd, "delete_directory")
         server[self.id].register_function(self.log_out_cmd, "log_out")
         server[self.id].register_function(self.query_work,"query_work")
         #server[self.id].register_function(self.copyFile,"copyFile")
         #server[self.id].register_function(self.recvFile,"recvFile")
+
+        #connect to master server to obtain server in the same group
+        if self.recover:
+            master_server = xmlrpclib.ServerProxy("http://" + IP_Addr + ":8000/")
+            peer_addr = master_server.getPeer(self.group_num)
+            peer_server = xmlrpclib.ServerProxy(peer_addr)
+            peer_server.copyFile("http://" + IP_Addr + ":800" + str(self.id) + "/")
+
         server[self.id].serve_forever()
 
 lock = ReadWriteLock()
@@ -591,7 +656,8 @@ lock = ReadWriteLock()
 server = [1]*serverNum
 
 id = int(sys.argv[1])
-svr = MultiServer(id);
+recover = bool(int(sys.argv[2]))
+svr = MultiServer(id, recover);
 svr.start()
 
 IsisSystem.WaitForever()

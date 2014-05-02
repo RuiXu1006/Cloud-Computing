@@ -26,11 +26,13 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 IPAddr = "localhost"
 
 # total number of server
-serverNum = 9
+serverNum = 8
 # the data servers in a group
 Num_mem = 2
 # the list to store the address of each server
 groups = []
+for i in range(0, serverNum/Num_mem + 1):
+    groups.append([])
 
 # this dictionary is used for serverID for each user
 group_record = dict()
@@ -88,6 +90,7 @@ class MasterServer(Thread):
         # Register Handlers in the group
         self.group.RegisterHandler(0, Action[str, str](self.writeServerInfo))
         self.group.RegisterHandler(1, Action[str, str](self.register_dsvr))
+        self.group.RegisterHandler(2, Action[str](self.update_dsvrinfo))
         self.group.Join()
 
     # Build directory for master-server at the beginning
@@ -109,32 +112,33 @@ class MasterServer(Thread):
             f = open(root_path + "/" + "Running_Log.txt", 'r')
             f.close()
 
-        # Building data server information file
+        # Building data server information file, if exists, flush all content
         if not (os.path.exists(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt")):
             f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'w+')
             f.close()
         else:
-            f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt", 'r')
+            f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt", 'w')
+            f.flush()
             f.close()
             
             
-        # build the server Address for each dataServer
-        response = urllib2.urlopen('http://fighterczy.com/ServerAddress.txt')
-        output = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt",'wb')
-        output.write(response.read())
-        output.close()
-        f = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt", 'r')
-        line = 1
-        groups.append([])
-        content = f.readline()
-        while (content):
-            content_buffer = re.split('\t', content)
-            groups.append([])
-            for i in range(0, len(content_buffer)):
-                groups[line].append(re.split('\n', content_buffer[i])[0])
-            line += 1
-            content = f.readline()
-        f.close()
+        ## build the server Address for each dataServer
+        #response = urllib2.urlopen('http://fighterczy.com/ServerAddress.txt')
+        #output = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt",'wb')
+        #output.write(response.read())
+        #output.close()
+        #f = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt", 'r')
+        #line = 1
+        #groups.append([])
+        #content = f.readline()
+        #while (content):
+        #    content_buffer = re.split('\t', content)
+        #    groups.append([])
+        #    for i in range(0, len(content_buffer)):
+        #        groups[line].append(re.split('\n', content_buffer[i])[0])
+        #    line += 1
+        #    content = f.readline()
+        #f.close()
         
         lock.release_write()
 
@@ -300,11 +304,29 @@ class MasterServer(Thread):
                         dsvr_list.append(dsvr)
                 except:
                     self.writeLog("Data server " + str(dsvr) + "failed")
+                    self.update_dsvrinfo_cmd(dsvr)
             return respond, dsvr_list
         else:
            respond = "The user_name doesn't exist, you need to sign up firstly"
            dsvr_list = []
            return respond, dsvr_list
+    # This function is used for updating data information in the master server
+    def update_dsvrinfo_cmd(self, dsvr):
+        self.group.OrderedSend(2, dsvr)
+
+    def update_dsvrinfo(self, dsvr):
+        f= open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'r')
+        lines = f.readlines()
+        f.close()
+        self.writeLog("Begin modifying in ms" + str(self.id) + "\n")
+        f= open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'w')
+        for line in lines:
+            con_buffer = re.split('\W+', line)
+            if (con_buffer[1] + "://" + con_buffer[2] + ":"+ con_buffer[3] + '/') != dsvr:
+                f.write(line)
+            else:
+                f.write("")
+        f.close()
 
     def writeLog(self, log):
         f = open(root_path + "/" + "Running_Log.txt", 'a')
@@ -319,6 +341,7 @@ class MasterServer(Thread):
         f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'a')
         f.write("IP_Address:" + str(ip_address) + "          ")
         group_id = (int(id)+1)/2
+        groups[group_id].append(str(ip_address))
         f.write("Group_ID:" + str(group_id) + "\n")
         f.close()
         lock.release_write()
@@ -328,9 +351,10 @@ class MasterServer(Thread):
         nr = self.group.OrderedSend(1, ip_address, id)
         return respond
 
-    def getPeer(self):
+    def getPeer(self, group_num):
         #return address of node in the same group
-        return 1
+        IP_Address = groups[int(group_num)][0]
+        return IP_Address
 
     def run(self):
         self.masterserver = ThreadXMLRPCServer((IPAddr, 8000+self.id*100), allow_none=True)
