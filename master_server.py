@@ -40,10 +40,10 @@ group_record = dict()
 global root_path
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
-root_path = home_dir + "/" + "CloudBox"
+root_path = home_dir + "\\" + "CloudBox"
 #if not os.path.exists(root_path):
 #    os.mkdir(root_path)
-server_information = root_path + "/" + "Master-Server/Server_information.txt"
+server_information = root_path + "\\" + "Master-Server\Server_information.txt"
 
 # This function is used for testify whether the user has the access to
 # use some specific functions
@@ -84,7 +84,7 @@ class MasterServer(Thread):
         global server_information
         Thread.__init__(self)
         self.id = id
-        server_information = root_path + "/" + "Master-Server" + str(self.id) + "/Server_information.txt"
+        server_information = root_path + "\\" + "Master-Server" + str(self.id) + "\Server_information.txt"
         # two servers will be assigned into one group
         self.group = Group("group"+"_master")
         # Register Handlers in the group
@@ -101,23 +101,23 @@ class MasterServer(Thread):
     # create root directory for master server
         if not (os.path.exists(root_path)):
             os.mkdir(root_path)
-        if not (os.path.exists(root_path + "/" + "Master-Server" +str(self.id))):
-            os.mkdir(root_path + "/" + "Master-Server" + str(self.id))
+        if not (os.path.exists(root_path + "\\" + "Master-Server" +str(self.id))):
+            os.mkdir(root_path + "\\" + "Master-Server" + str(self.id))
 
         # Building running log file
-        if not (os.path.exists(root_path + "/" + "Running_Log.txt")):
-            f = open(root_path + "/" + "Running_Log.txt", 'w+')
+        if not (os.path.exists(root_path + "\\" + "Running_Log.txt")):
+            f = open(root_path + "\\" + "Running_Log.txt", 'w+')
             f.close()
         else:
-            f = open(root_path + "/" + "Running_Log.txt", 'r')
+            f = open(root_path + "\\" + "Running_Log.txt", 'r')
             f.close()
 
         # Building data server information file, if exists, flush all content
-        if not (os.path.exists(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt")):
-            f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'w+')
+        if not (os.path.exists(root_path + "\\" + "Master-Server" +str(self.id) + "\\" + "Data_server_information.txt")):
+            f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'w+')
             f.close()
         else:
-            f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" + "Data_server_information.txt", 'w')
+            f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" + "Data_server_information.txt", 'w')
             f.flush()
             f.close()
             
@@ -183,7 +183,7 @@ class MasterServer(Thread):
         for item in range(1, serverNum, Num_mem):
             temp = 0
             for member in range (0, Num_mem):
-                temp = temp + self.getdirsize(root_path + "/" + str(item + member))
+                temp = temp + self.getdirsize(root_path + "\\" + str(item + member))
                 #self.writeLog( "There are %.3f" % (temp)+ "byte in the %d folder" % (item)+"\n")
             self.writeLog( "There are %.3f" % (temp) + "byte in the %d group" % (item) + "\n")
             # if current foler is the minimum one, record it
@@ -297,8 +297,6 @@ class MasterServer(Thread):
             for mem in range(0, Num_mem):
                 dsvr = "http://" + IPAddr + ":800" + str(2*int(groupName) - 1 + mem) + "/"
                 self.writeLog(dsvr)
-                #dsvr = 2 * int(groupName) - 1 + mem
-                #dsvr = "http://" + IPAddr + ":" + "800" + str(dsvr) + "/"
                 tempClient = xmlrpclib.ServerProxy(dsvr)
                 try:
                     respond = tempClient.query_work("Y/N")
@@ -317,11 +315,11 @@ class MasterServer(Thread):
         self.group.OrderedSend(2, dsvr)
 
     def update_dsvrinfo(self, dsvr):
-        f= open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'r')
+        f= open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'r')
         lines = f.readlines()
         f.close()
         self.writeLog("Begin modifying in ms" + str(self.id) + "\n")
-        f= open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'w')
+        f= open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'w')
         for line in lines:
             con_buffer = re.split('\W+', line)
             if (con_buffer[1] + "://" + con_buffer[2] + ":"+ con_buffer[3] + '/') != dsvr:
@@ -331,7 +329,7 @@ class MasterServer(Thread):
         f.close()
 
     def writeLog(self, log):
-        f = open(root_path + "/" + "Running_Log.txt", 'a')
+        f = open(root_path + "\\" + "Running_Log.txt", 'a')
         f.write(str(datetime.datetime.now()) + "\n")
         f.write(log)
         f.close()
@@ -340,7 +338,7 @@ class MasterServer(Thread):
     def register_dsvr(self, ip_address, id):
         global lock
         lock.acquire_write()
-        f = open(root_path + "/" + "Master-Server" +str(self.id) + "/" +"Data_server_information.txt", 'a')
+        f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'a')
         f.write("IP_Address:" + str(ip_address) + "          ")
         group_id = (int(id)+1)/2
         groups[group_id].append(str(ip_address))

@@ -36,8 +36,8 @@ server_record = dict()
 global root_path
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
-root_path = home_dir + "/" + "CloudBox"
-server_information = root_path + "/" + "Master-Server/Server_information.txt"
+root_path = home_dir + "\\" + "CloudBox"
+server_information = root_path + "\\" + "Master-Server\Server_information.txt"
 
 IsisSystem.Start()
 # This Lock class will used for the synchronization in data servers
@@ -76,8 +76,8 @@ class MultiServer(Thread):
         self.id =id
         self.IPAddr = IPAddr
         self.svrName = "http://"+self.IPAddr+":"+ str(8000+self.id)+"/"
-        self.user_information = root_path + "/" + str(self.id) + "/" + "User_information.txt"
-        self.running_log = root_path + "/" + str(self.id) + "/" + "Running_Log.txt"
+        self.user_information = root_path + "\\" + str(self.id) + "\\" + "User_information.txt"
+        self.running_log = root_path + "\\" + str(self.id) + "\\" + "Running_Log.txt"
         # This dictionary is used for storing user information in data server
         self.user_record = dict()
         # This dictionary is used for access key for different users
@@ -115,14 +115,14 @@ class MultiServer(Thread):
     # create root directory for servers
         if not (os.path.exists(root_path)):
             os.mkdir(root_path)
-        if not (os.path.exists(root_path+"/"+str(self.id))):
-            os.mkdir(root_path+"/"+str(self.id))
+        if not (os.path.exists(root_path+"\\"+str(self.id))):
+            os.mkdir(root_path+"\\"+str(self.id))
     # Then, based on the user_record, tests whether each user has its own directory
     # or not, if not, building corresponding folders
-        user_folder = root_path + "/default"
+        user_folder = root_path + "\default"
         """" the creation of user fold should not build in this function
         for user_name in user_record:
-            user_folder = root_path + "/" +str(self.id) +"/" + user_name;
+            user_folder = root_path + "\\" +str(self.id) +"\\" + user_name;
         """
         if not (os.path.exists(user_folder)):
             os.mkdir(user_folder)
@@ -277,7 +277,7 @@ class MultiServer(Thread):
             respond = "You have no right to use this function"
         else:
             current_user = self.security_check(user_name, key)
-            work_path = root_path + "/" +str(self.id) +"/" + current_user + "/" + rel_path
+            work_path = root_path + "\\" +str(self.id) +"\\" + current_user + "\\" + rel_path
             file_list = os.listdir(work_path)
             respond = file_list
         lock.release_write()
@@ -296,7 +296,7 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
             # get the work path from the information sent by client
-            work_path = root_path + "/" + str(self.id) +"/" + current_user + rel_path
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user + rel_path
             #self.writeLog(str(work_path) + "\n")
     # Firstly, check if that this path exist or not
         if os.path.exists(work_path):
@@ -321,7 +321,7 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
     # set the path of root directory, and found flag to be false
-            work_path = root_path + "/" + str(self.id) +"/" + current_user
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user
             foundmatch = False
     # With the use of os.walk, go through all files in file system
             for root, dirs, files in os.walk(work_path):
@@ -349,7 +349,7 @@ class MultiServer(Thread):
         else:
             current_user =  self.security_check(user_name, key)
     # set the path root directory, and found flag to be false
-            work_path = root_path + "/" + str(self.id) +"/" + current_user
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user
     # get the file location of give file
             file_location = self.search_files(user_name, file_name, key)
             print "From server - The download file locates at " + file_location
@@ -391,8 +391,8 @@ class MultiServer(Thread):
             current_user = self.security_check(user_name, key)
     # set the root directory to store upload files, and get
     # the file location
-            work_path = root_path + "/" + str(self.id) +"/" +current_user;
-            file_location = work_path + "/" + file_name
+            work_path = root_path + "\\" + str(self.id) +"\\" +current_user;
+            file_location = work_path + "\\" + file_name
             with open(file_location, "wb") as handle:
                 handle.write(transmit_data)
             lock.release_write()
@@ -450,12 +450,12 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
             # firstly check whether this directory exists
-            if (os.path.exists(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)):
+            if (os.path.exists(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)):
                 respond = "This directory has existed!"
                 self.group.Reply(0)
                 return
             else:
-                os.mkdir(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)
+                os.mkdir(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)
                 respond = "Making directory successfully!"
                 self.group.Reply(1)
                 return
@@ -488,16 +488,16 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
             # firstly check whether this directory exists
-            if not (os.path.exists(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)):
+            if not (os.path.exists(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)):
                 respond = "This directory doesn't exist"
                 self.group.Reply(0)
                 return
-            elif not (os.path.isdir(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)):
+            elif not (os.path.isdir(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)):
                 respond = "This is not a directory"
                 self.group.Reply(2)
                 return
             else:
-                shutil.rmtree(root_path + "/" + str(self.id) + "/" + current_user + rel_path + "/" + dir_name)
+                shutil.rmtree(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)
                 respond = "Deleting directory successfully!"
                 self.group.Reply(1)
                 return
@@ -569,13 +569,13 @@ class MultiServer(Thread):
         self.writeLog("modifying User Table")
         svr.user_record[user_name] = initial_password
         self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
-        f = open(root_path + "/" + str(self.id) + "/" + "User_information.txt", 'a')
+        f = open(root_path + "\\" + str(self.id) + "\\" + "User_information.txt", 'a')
         content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
         f.write(content)
         f.close()
         self.writeLog("finish write to file on server"+ "800"+ str(self.id))
         # build file folder for new users
-        new_dir = root_path + "/" + str(self.id) + "/" + user_name
+        new_dir = root_path + "\\" + str(self.id) + "\\" + user_name
         os.mkdir(new_dir)
         self.group.Reply(1)
         return
@@ -585,22 +585,24 @@ class MultiServer(Thread):
         return True
 
     def writeLog(self, log):
-        f = open(root_path + "/" + "Running_Log.txt", 'a')
+        f = open(root_path + "\\" + "Running_Log.txt", 'a')
         f.write(str(datetime.datetime.now()) + "\n")
         f.write(log)
         f.close()
 
     def getFilelist(self):
         file_list = []
-        sourcePath = root_path + "/" + str(self.id) + "/"
+        sourcePath = root_path + "\\" + str(self.id) + "\\"
         for root, dirs, files in os.walk(sourcePath):
             for f in files:
-                file_list.append(f)
+                file_abspath = os.path.join(root, f)
+                file_relpath = os.path.relpath(file_abspath, root_path + "\\" + str(self.id) + "\\")
+                file_list.append(file_relpath)
 
         return file_list
 
     def copyFile(self, fileLoc):
-        sourcePath = root_path + "/" + str(self.id) + "/"
+        sourcePath = root_path + "\\" + str(self.id) + "\\"
         with open(sourcePath + fileLoc, "rb") as handle:
             self.writeLog("Copying file" + sourcePath+fileLoc+'\n')
             filedata = xmlrpclib.Binary(handle.read())
@@ -641,7 +643,7 @@ class MultiServer(Thread):
             file_list = peer_server.getFilelist()
             for f in file_list:
                 self.writeLog("The original file location is " + f + "\n")
-                fileLoc = root_path + "/" + str(self.id) + "/" + f
+                fileLoc = root_path + "\\" + str(self.id) + "\\" + f
                 self.writeLog("The file location is " + fileLoc + "\n")
                 fileDir = '\\'.join(fileLoc.split('\\')[:-1])
                 self.writeLog("The file directory is " + fileDir + "\n")
