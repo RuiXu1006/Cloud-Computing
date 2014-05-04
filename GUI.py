@@ -425,7 +425,8 @@ class ShareDialog(wx.Dialog):
         self.SetSizer(sizer)
 
     def SubmitClick(self, event):
-        #respond = self.GetParent.client.share_file(self.text.GetValue(), self.filename)
+        #TODO: share this file to a user
+        #respond = self.GetParent.client.share_file(username, filename,key)
         respond = 'Share successfully'
         if respond == 'Share successfully':
             wx.MessageBox('Share file successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
@@ -439,6 +440,7 @@ class SharePanel(wx.Panel):
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
         # TODO: filelist of files that are shared to this user
+        # filelist = self.GetParent().client.list_shared(username, key)
         filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
         self.listbox = wx.ListBox(self, -1, choices=filelist)
         hbox.Add(self.listbox, 1, wx.EXPAND | wx.ALL, 20)
@@ -470,6 +472,7 @@ class SharePanel(wx.Panel):
         file_name = self.listbox.GetString(sel)
         
         # TODO: need to call server rpc to get data from another server
+        # data = self.GetParent().client.get_shared(username, filename, key)
         if not (os.path.exists(user_folder)):
             os.mkdir(user_folder)
         file_location = user_folder + "/" + file_name
