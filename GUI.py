@@ -3,6 +3,7 @@
 import xmlrpclib
 import os
 import re
+import random
 
 try:
     import wx
@@ -21,6 +22,8 @@ class simpleapp_wx(wx.Frame):
         self.parent = parent
         self.username = "null"
         self.key = "null"
+        if not os.path.exists(root_path):
+            os.mkdir(root_path)
         self.initialize()
 
     def initialize(self):
@@ -41,7 +44,7 @@ class simpleapp_wx(wx.Frame):
         self.sizer.Add(self.loginPanel, 1, wx.EXPAND)
         self.sizer.Add(self.signupPanel, 1, wx.EXPAND)
         #self.sizer.Add(self.welcomePanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)        
-        self.sizer.Add(self.changePassPanel, 1, flag= wx.ALIGN_CENTER|wx.ALL, border=10)
+        self.sizer.Add(self.changePassPanel, 1, wx.EXPAND)
         
         self.SetSizerAndFit(self.sizer)
         self.Show()
@@ -115,40 +118,108 @@ class LoginPanel(wx.Panel):
 
         self.SetSizer(hbox)
     
+    # This function is used for selecting data server from clients side
+    def select_dserver(self, username):
+        svr_list = []
+        if (os.path.exists(root_path + "/" +username + "/svrName.txt")):
+            f = open(root_path + "/" + username + "/svrName.txt", 'r')
+            # Store all valid data server names in the list
+            svrName = f.readline()
+            while (svrName):
+                svrName = svrName.rstrip('\n')
+                svr_list.append(svrName)
+                svrName = f.readline()
+            if len(svr_list) != 0:
+                local_found = True
+            else:
+                return 0;
+        else:
+            local_found = False
+
+        # if there are valid data server in the list, random selects among them
+        if local_found:
+            #print svr_list
+            svr_index = random.randint(0, 100000000)
+            svr_index = svr_index % len(svr_list)
+            #print svr_index
+            svrName = svr_list[svr_index]
+            return svrName
+        else:
+            return 0;
+
     def Log_inClick(self,event):
         # Login to the right server
         # Issue: what if user change computer to login?
         self.GetParent().username = self.text0.GetValue()
-        f = open(user_information, 'r+')
-        lines = f.readlines()
-        # Flag to indicate whether the user record exists locally
-        flag = 0
-        for line in lines:
-            con_buffer = re.split('\W+', line)
-            if con_buffer[1] == self.GetParent().username:
-                srvName = con_buffer[3]
-                flag = 1
-        
-        if flag == 1:
-            self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:"+srvName+"/")
-        else:
+        user_name = self.text0.GetValue()
+        svrName = self.select_dserver(user_name)
+        # if not found effective server port in local file, ask for master server
+        if svrName == 0:
             self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
-            respond, srvName = self.GetParent().master.query_server(self.GetParent().username)
+            respond, svr_list = self.GetParent().master.query_server(user_name)
             if respond == "Found":
-                self.GetParent().client = xmlrpclib.ServerProxy("http://localhost:"+srvName+"/")
-                flag = 1
+                f = open(root_path+"/"+user_name+"/svrName.txt", 'w+')
+                for index in range(0, len(svr_list)):
+                    content = str(svr_list[index])
+                    f.write(content + "\n")
+                f.close()
+            svrName = self.select_dserver(user_name)
+
+            # If unable to connect with data server, the client will ask the master server
+            # to update avaible data server list, and re-login again
+        try:
+            if svrName != 0:
+                self.GetParent().client = xmlrpclib.ServerProxy(str(svrName))
+                #print user_name + " || "+ password
+                respond, svrName = self.GetParent().client.login_in(user_name, self.text1.GetValue())
+                respond_buffer = respond.split('#')
+                respond = respond_buffer[0]
+                if respond == "Login in successfully":
+                    self.GetParent().key = respond_buffer[1]
+                    user_folder = root_path + "/" + user_name
+                    if not (os.path.exists(user_folder)):
+                        os.mkdir(user_folder)
+                    self.Hide()
+                    self.menubar = functionMenuBar()
+                    self.GetParent().SetMenuBar(self.menubar)
+                    self.GetParent().Layout()
+                    self.GetParent().listPanel = ListPanel(self.GetParent())
+                    self.GetParent().GetSizer().Add(self.GetParent().listPanel, 1, flag= wx.ALIGN_TOP|wx.ALL)   
+                    self.GetParent().listPanel.Show()
+                    self.GetParent().GetSizer().Layout()
+                else:
+                    wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
+                    self.GetSizer().Layout()
+                    self.GetParent().Layout()
+                    self.GetParent().GetSizer().Layout()
             else:
                 wx.MessageBox('Login failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
                 self.GetSizer().Layout()
                 self.GetParent().Layout()
                 self.GetParent().GetSizer().Layout()
-        
-        # Login to the corresponding server
-        if flag == 1:    
-            respond, srvName = self.GetParent().client.login_in(self.text0.GetValue(), self.text1.GetValue())
+        except:
+            # Then client asks master servers to update current available data server list
+            self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            respond, svr_list = self.GetParent().master.update_dsvr(user_name)
+            # Then update local available data server list
+            if not os.path.exists(root_path+"/"+user_name):
+                os.mkdir(root_path+"/"+user_name)
+            f = open(root_path+"/"+user_name+"/svrName.txt", 'w+')
+            for index in range(0, len(svr_list)):
+                content = svr_list[index]
+                f.write(str(content) + "\n")
+            f.close()
+            # Then login in again
+            svrName = self.select_dserver(user_name)
+            self.GetParent().client = xmlrpclib.ServerProxy(str(svrName))
+            respond, svrName = self.GetParent().client.login_in(user_name, self.text1.GetValue())
             respond_buffer = respond.split('#')
-            if respond_buffer[0] == "Login in successfully":
+            respond = respond_buffer[0]
+            if respond == "Login in successfully":
                 self.GetParent().key = respond_buffer[1]
+                user_folder = root_path + "/" + user_name
+                if not (os.path.exists(user_folder)):
+                    os.mkdir(user_folder)
                 self.Hide()
                 self.menubar = functionMenuBar()
                 self.GetParent().SetMenuBar(self.menubar)
@@ -194,20 +265,20 @@ class SignupPanel(wx.Panel):
     
     def Sign_upClick(self, event):
         username = self.text0.GetValue()
-        respond, srvName = self.GetParent().master.sign_up(username, self.text1.GetValue())
+        respond, svr_list = self.GetParent().master.sign_up(username, self.text1.GetValue())
         if respond == "Sign up successfully!":
             self.Hide()  
             self.GetParent().initialPanel.Show()
             self.GetParent().GetSizer().Layout()
             # Add the user-server information
-            f = open(user_information, 'a+')
-            content = "Username: " + username + "    " + "ServerID: " + srvName + '\n'
-            f.write(content)
-            f.close()
-            # Create new folder
             new_dir = root_path + "/" + username;
-            if not (os.path.exists(new_dir)):
-                os.mkdir(new_dir)           
+            if not os.path.exists(new_dir):
+                os.mkdir(new_dir)
+            f = open(root_path+"/"+username+"/svrName.txt", 'w+')
+            for index in range(0, len(svr_list)):
+                content = str(svr_list[index])
+                f.write(content + "\n")
+            f.close()           
         else:
             wx.MessageBox('Sign up failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.GetSizer().Layout()
@@ -220,6 +291,11 @@ class functionMenuBar(wx.MenuBar):
     	wx.MenuBar.__init__(self)
         
         userMenu = wx.Menu() 
+
+        shared_files = wx.MenuItem(userMenu,wx.ID_ANY, 'Shared files')
+        userMenu.AppendItem(shared_files)
+        self.Bind(wx.EVT_MENU, self.Shared_filesClick, shared_files)
+
         change_pass = wx.MenuItem(userMenu,wx.ID_ANY, 'Change password')
         userMenu.AppendItem(change_pass)
         self.Bind(wx.EVT_MENU, self.Change_passClick, change_pass)
@@ -230,32 +306,30 @@ class functionMenuBar(wx.MenuBar):
         
         self.Append(userMenu, 'User')       
     
+    def Shared_filesClick(self,event):
+        self.GetParent().HideAll()
+        self.GetParent().sharePanel = SharePanel(self.GetParent())
+        self.GetParent().sizer.Add(self.GetParent().sharePanel, 1, wx.EXPAND)
+        self.GetParent().sharePanel.Show()
+        self.GetParent().GetSizer().Layout()
+
     def Change_passClick(self,event):
         self.GetParent().HideAll()
         self.GetParent().changePassPanel.Show()
         self.GetParent().GetSizer().Layout()
     
     def Log_outClick(self,event):
-        #TODO: actions for logging out
-        self.GetParent().GetSizer().Layout()
-
-# class WelcomePanel(wx.Panel):    
-#     def __init__(self, parent):
-#         wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
-#         sizer = wx.BoxSizer(wx.VERTICAL)
-#         
-#         # Initial message panel
-#         font = wx.Font(36, wx.DEFAULT, wx.NORMAL, wx.BOLD)
-#         label = wx.StaticText(self,-1,label=u'Welcome!', size=(300, 40), style=wx.ALIGN_CENTER)
-#         label.SetForegroundColour(wx.RED)
-#         label.SetFont(font)
-#         sizer.Add(label, wx.ALIGN_CENTER )
-#         
-#         self.SetSizer(sizer)
+        try:
+            respond = self.GetParent().client.log_out(self.GetParent().username, self.GetParent().key)
+            self.GetParent().HideAll()
+            self.GetParent().initialPanel.Show()
+            self.GetParent().GetSizer().Layout()
+        except:
+            print "There are some errors when logging out"
 
 class ListPanel(wx.Panel):
     def __init__(self, parent):
-        wx.Panel.__init__(self, parent=parent, style=wx.ALIGN_CENTER)
+        wx.Panel.__init__(self, parent=parent, size=(400,350),style=wx.ALIGN_CENTER)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
         filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
@@ -268,15 +342,18 @@ class ListPanel(wx.Panel):
         upload = wx.Button(btnPanel, -1, 'Upload', size = (90,30))
         download = wx.Button(btnPanel, -1, 'Download', size = (90, 30))
         delete = wx.Button(btnPanel, -1, 'Delete', size = (90, 30))
+        share = wx.Button(btnPanel, -1, 'Share', size = (90, 30))
         
         self.Bind(wx.EVT_BUTTON, self.OnUpload, upload)
         self.Bind(wx.EVT_BUTTON, self.OnDownload, download)
         self.Bind(wx.EVT_BUTTON, self.OnDelete, delete)
+        self.Bind(wx.EVT_BUTTON, self.OnShare, share)
         
         vbox.Add((-1, 20))
         vbox.Add(upload)
         vbox.Add(download, 0, wx.TOP, 5)
         vbox.Add(delete, 0, wx.TOP, 5)
+        vbox.Add(share, 0, wx.TOP, 5)
         
         btnPanel.SetSizer(vbox)
         hbox.Add(btnPanel, 0.6, wx.EXPAND|wx.RIGHT, 20)
@@ -317,11 +394,92 @@ class ListPanel(wx.Panel):
         self.listbox.Delete(sel)
         self.GetParent().GetSizer().Layout()
 
-## TODO
-# class SearchPanel(wx.Panel):
-# class UploadPanel(wx.Panel):
-# class DownloadPanel(wx.Panel):
-# class DeletePanel(wx.Panel):
+    def OnShare(self, event):
+        username = self.GetParent().username
+        sel = self.listbox.GetSelection()
+        file_name = self.listbox.GetString(sel)
+        
+        shareDia = ShareDialog(file_name)
+        shareDia.ShowModal()
+
+class ShareDialog(wx.Dialog):
+    def __init__(self, filename):
+        wx.Dialog.__init__(self, None)
+        self.filename = filename
+        self.SetSize((200, 150))
+        self.SetTitle("Share file")
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        label = wx.StaticText(self,-1,label='Share this file to whom', style=wx.ALIGN_CENTER)
+        sizer.Add(label, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP, border=15)
+
+        self.text = wx.TextCtrl(self,-1)
+        sizer.Add(self.text, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP|wx.EXPAND, border=15)
+
+        button = wx.Button(self,-1,label="Submit")
+        sizer.Add(button, flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT|wx.TOP, border=15)
+
+        self.Bind(wx.EVT_BUTTON, self.SubmitClick, button)
+
+        self.SetSizer(sizer)
+
+    def SubmitClick(self, event):
+        #respond = self.GetParent.client.share_file(self.text.GetValue(), self.filename)
+        respond = 'Share successfully'
+        if respond == 'Share successfully':
+            wx.MessageBox('Share file successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
+        else:
+            wx.MessageBox('Share file failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
+        self.Destroy()
+
+class SharePanel(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent, size=(400,350),style=wx.ALIGN_CENTER)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        
+        # TODO: filelist of files that are shared to this user
+        filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
+        self.listbox = wx.ListBox(self, -1, choices=filelist)
+        hbox.Add(self.listbox, 1, wx.EXPAND | wx.ALL, 20)
+        
+        btnPanel = wx.Panel(self, -1)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        
+        download = wx.Button(btnPanel, -1, 'Download', size = (90, 30))
+        returnb = wx.Button(btnPanel, -1, 'Return', size = (90, 30))
+        
+        self.Bind(wx.EVT_BUTTON, self.OnDownload, download)
+        self.Bind(wx.EVT_BUTTON, self.OnReturn, returnb)
+        
+        vbox.Add((-1, 20))
+        vbox.Add(download)
+        vbox.Add(returnb, 0, wx.TOP, 5)
+        
+        btnPanel.SetSizer(vbox)
+        hbox.Add(btnPanel, 0.6, wx.EXPAND|wx.RIGHT, 20)
+        
+        self.SetSizer(hbox)
+
+    def OnDownload(self, event):
+        username = self.GetParent().username
+        home_dir = os.path.expanduser("~")
+        root_path = home_dir + "/" + "LocalBox"
+        user_folder = root_path + "/" + username
+        sel = self.listbox.GetSelection()
+        file_name = self.listbox.GetString(sel)
+        
+        # TODO: need to call server rpc to get data from another server
+        if not (os.path.exists(user_folder)):
+            os.mkdir(user_folder)
+        file_location = user_folder + "/" + file_name
+        with open(file_location, "wb") as handle:
+            handle.write(self.GetParent().client.download_files(username, file_name, self.GetParent().key).data)
+
+    def OnReturn(self, event):
+        self.Hide()
+        self.GetParent().listPanel.Show()
+        self.GetParent().GetSizer().Layout()
 
 class ChangePassPanel(wx.Panel):
     def __init__(self, parent):
@@ -356,8 +514,8 @@ class ChangePassPanel(wx.Panel):
         respond = self.GetParent().client.change_password(self.GetParent().username, self.text0.GetValue(), self.text1.GetValue())
         if respond == "Change password successfully":
             wx.MessageBox('Change password successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
-            self.GetSizer().Layout()
-            self.GetParent().Layout()
+            self.Hide()
+            self.GetParent().listPanel.Show()
             self.GetParent().GetSizer().Layout()
         else:
             wx.MessageBox('Change password failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
