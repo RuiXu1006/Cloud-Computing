@@ -74,6 +74,8 @@ class MultiServer(Thread):
     def __init__(self, id, recover):
         Thread.__init__(self)
         self.id =id
+        self.key = "ds400" + str(self.id)
+        self.svr_name = "data_server#" + str(self.id)
         self.IPAddr = IPAddr
         self.svrName = "http://"+self.IPAddr+":"+ str(8000+self.id)+"/"
         self.user_information = root_path + "\\" + str(self.id) + "\\" + "User_information.txt"
@@ -92,7 +94,7 @@ class MultiServer(Thread):
         self.group.RegisterHandler(2, Action[str, str, str](self.delete_files))
         self.group.RegisterHandler(3, Action[str, str, str](self.change_password))
         self.group.RegisterHandler(4, Action[str, str](self.update_user_record))
-        self.group.RegisterHandler(5, Action[str, str](self.modifyUserTable))
+        self.group.RegisterHandler(5, Action[str, str, str, str](self.modifyUserTable))
         self.group.RegisterHandler(6, Action[str, str](self.log_out))
         self.group.RegisterHandler(7, Action[str, str, str, str](self.make_directory))
         self.group.RegisterHandler(8, Action[str, str, str, str](self.delete_directory))
@@ -106,6 +108,26 @@ class MultiServer(Thread):
         if ~foundmatch:
             result = "denied access"
             return result
+
+    # Security check function will check whether key matches with given data serve name
+    def security_svr_check(self, svr_name, svr_key):
+        foundmatch = False
+        svr_name_buffer = svr_name.split("#")
+        svr_type = svr_name_buffer[0]
+        svr_id   = svr_name_buffer[1]
+        if svr_type == "master_server":
+            if svr_key == "ms" + "900" + svr_id:
+                foundmatch = True
+        elif svr_type == "data_server":
+            if svr_key == "ds" + "400" + svr_id:
+                foundmatch = True
+        if foundmatch:
+            result = "Authorized access"
+            return result
+        else:
+            result = "Denied access"
+            return result
+
      
     # This function is used for server to build directories at the beginning
     def build_up(self,root_path):
@@ -136,7 +158,7 @@ class MultiServer(Thread):
         lock.release_write()
         tmpclient = xmlrpclib.ServerProxy("http://localhost:8000/")
         ip_address = "http://" + IPAddr + ":800" + str(self.id) + "/"
-        respond = tmpclient.register_dsvr(ip_address, str(self.id))
+        respond = tmpclient.register_dsvr(ip_address, str(self.id), self.svr_name, self.key)
     
     # send command to all members in the group to prepare for updating their own user_record
     def update_user_record_cmd(self, user_name, password):
@@ -340,6 +362,36 @@ class MultiServer(Thread):
         lock.release_write()    
         return respond
 
+    # This function is used for search directory in the file system
+    # of data server, if there is required file, return True,
+    # otherwise return false
+    def search_dirs(self,user_name, dir_name, key):
+        global lock
+        lock.acquire_write()
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+        else:
+            current_user = self.security_check(user_name, key)
+    # set the path of root directory, and found flag to be false
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user
+            foundmatch = False
+    # With the use of os.walk, go through all files in file system
+            for root, dirs, files in os.walk(work_path):
+    # If file found, set found flag, and get the location of file
+                if dir_name in dirs:
+                    dir_location = os.path.join(root, dir_name)
+                    foundmatch = True
+                    break
+    # If flag is true, found file and return the location
+            if foundmatch:
+                respond = dir_location
+    # If flag is false, return false information
+            else:
+                respond = "Not found"
+        
+        lock.release_write()    
+        return respond
+
     # This function is used for downloading files to client
     def download_files(self,user_name, file_name, key):
         global lock
@@ -393,6 +445,9 @@ class MultiServer(Thread):
     # the file location
             work_path = root_path + "\\" + str(self.id) +"\\" +current_user;
             file_location = work_path + "\\" + file_name
+            file_dir = '\\'.join(file_location.split('\\')[:-1])
+            if not os.path.exists(file_dir):
+                os.makedirs(file_dir)
             with open(file_location, "wb") as handle:
                 handle.write(transmit_data)
             lock.release_write()
@@ -555,34 +610,41 @@ class MultiServer(Thread):
                 self.group.Reply(-1)
                 return
 
-    def modifyUserTable_cmd(self,user_name, initial_password):
+    def modifyUserTable_cmd(self,user_name, initial_password, svr_name, svr_key):
         respond = True
         res = []
-        nr = self.group.OrderedQuery(Group.ALL, 5, user_name,initial_password, EOLMarker(), res)
+        nr = self.group.OrderedQuery(Group.ALL, 5, user_name,initial_password, svr_name, svr_key, EOLMarker(), res)
         for reply in res:
             if (reply == -1):
                 respond = False
                 break
         return respond
 
-    def modifyUserTable(self, user_name, initial_password):
-        self.writeLog("modifying User Table")
-        svr.user_record[user_name] = initial_password
-        self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
-        f = open(root_path + "\\" + str(self.id) + "\\" + "User_information.txt", 'a')
-        content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
-        f.write(content)
-        f.close()
-        self.writeLog("finish write to file on server"+ "800"+ str(self.id))
-        # build file folder for new users
-        new_dir = root_path + "\\" + str(self.id) + "\\" + user_name
-        os.mkdir(new_dir)
-        self.group.Reply(1)
-        return
+    def modifyUserTable(self, user_name, initial_password, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            self.writeLog("modifying User Table")
+            svr.user_record[user_name] = initial_password
+            self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
+            f = open(root_path + "\\" + str(self.id) + "\\" + "User_information.txt", 'a')
+            content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
+            f.write(content)
+            f.close()
+            self.writeLog("finish write to file on server"+ "800"+ str(self.id))
+            # build file folder for new users
+            new_dir = root_path + "\\" + str(self.id) + "\\" + user_name
+            os.mkdir(new_dir)
+            self.group.Reply(1)
+            return
+        else:
+            self.group.Reply(-1)
+            return
 
     # This function is used for proving that the data server currently works
-    def query_work(self, str):
-        return True
+    def query_work(self, str, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            return True
+        else:
+            return False
 
     def writeLog(self, log):
         f = open(root_path + "\\" + "Running_Log.txt", 'a')
@@ -590,22 +652,36 @@ class MultiServer(Thread):
         f.write(log)
         f.close()
 
-    def getFilelist(self):
-        file_list = []
-        sourcePath = root_path + "\\" + str(self.id) + "\\"
-        for root, dirs, files in os.walk(sourcePath):
-            for f in files:
-                file_abspath = os.path.join(root, f)
-                file_relpath = os.path.relpath(file_abspath, root_path + "\\" + str(self.id) + "\\")
-                file_list.append(file_relpath)
+    def getFilelist(self, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            file_list = []
+            sourcePath = root_path + "\\" + str(self.id) + "\\"
+            for root, dirs, files in os.walk(sourcePath):
+                for f in files:
+                    file_abspath = os.path.join(root, f)
+                    file_relpath = os.path.relpath(file_abspath, root_path + "\\" + str(self.id) + "\\")
+                    file_list.append(file_relpath)
 
         return file_list
 
-    def copyFile(self, fileLoc):
-        sourcePath = root_path + "\\" + str(self.id) + "\\"
-        with open(sourcePath + fileLoc, "rb") as handle:
-            self.writeLog("Copying file" + sourcePath+fileLoc+'\n')
-            filedata = xmlrpclib.Binary(handle.read())
+    def getfilelist_client(self, user_name, key, dir_location):
+        if self.security_check(user_name, key) == "denied access":
+            file_list = ["none"]
+        else:
+            file_list = []
+            for root, dirs, files in os.walk(dir_location):
+                for f in files:
+                    file_abspath = os.path.join(root, f)
+                    file_relpath = os.path.relpath(file_abspath, dir_location)
+                    file_list.append(file_relpath)
+        return file_list
+
+    def copyFile(self, fileLoc, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            sourcePath = root_path + "\\" + str(self.id) + "\\"
+            with open(sourcePath + fileLoc, "rb") as handle:
+                self.writeLog("Copying file" + sourcePath+fileLoc+'\n')
+                filedata = xmlrpclib.Binary(handle.read())
 
         return filedata
 
@@ -625,6 +701,7 @@ class MultiServer(Thread):
         server[self.id].register_function(self.list_files, "list_files")
         server[self.id].register_function(self.change_directory, "change_directory")
         server[self.id].register_function(self.search_files, "search_files")
+        server[self.id].register_function(self.search_dirs,  "search_dirs")
         server[self.id].register_function(self.download_files, "download_files")
         server[self.id].register_function(self.upload_files_cmd, "upload_files")
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
@@ -633,23 +710,22 @@ class MultiServer(Thread):
         server[self.id].register_function(self.log_out_cmd, "log_out")
         server[self.id].register_function(self.query_work,"query_work")
         server[self.id].register_function(self.getFilelist,"getFilelist")
+        server[self.id].register_function(self.getfilelist_client,"getfilelist_client")
         server[self.id].register_function(self.copyFile,"copyFile")
 
         #connect to master server to obtain server in the same group
         if self.recover:
             master_server = xmlrpclib.ServerProxy("http://" + IPAddr + ":8000/")
-            peer_addr = master_server.getPeer(self.group_num)
+            peer_addr = master_server.getPeer(self.group_num, self.svr_name, self.id)
             peer_server = xmlrpclib.ServerProxy(peer_addr)
-            file_list = peer_server.getFilelist()
+            file_list = peer_server.getFilelist(self.svr_name, self.key)
             for f in file_list:
-                self.writeLog("The original file location is " + f + "\n")
                 fileLoc = root_path + "\\" + str(self.id) + "\\" + f
-                self.writeLog("The file location is " + fileLoc + "\n")
                 fileDir = '\\'.join(fileLoc.split('\\')[:-1])
                 self.writeLog("The file directory is " + fileDir + "\n")
                 if not os.path.exists(fileDir):
                     os.makedirs(fileDir)
-                fileData = peer_server.copyFile(f)
+                fileData = peer_server.copyFile(f, self.svr_name, self.key)
                 with open(fileLoc, "wb+") as handle:
                     handle.write(fileData.data)
 

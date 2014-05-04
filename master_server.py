@@ -84,14 +84,37 @@ class MasterServer(Thread):
         global server_information
         Thread.__init__(self)
         self.id = id
+        self.svr_name = "master_server#" + str(self.id)
+        self.key = "ms900" + str(self.id) 
         server_information = root_path + "\\" + "Master-Server" + str(self.id) + "\Server_information.txt"
         # two servers will be assigned into one group
         self.group = Group("group"+"_master")
         # Register Handlers in the group
         self.group.RegisterHandler(0, Action[str, str](self.writeServerInfo))
-        self.group.RegisterHandler(1, Action[str, str](self.register_dsvr))
+        self.group.RegisterHandler(1, Action[str, str, str, str](self.register_dsvr))
         self.group.RegisterHandler(2, Action[str](self.update_dsvrinfo))
         self.group.Join()
+
+    # Security check function will check whether key matches with given data serve name
+    def security_svr_check(self, svr_name, svr_key):
+        foundmatch = 0
+        svr_name_buffer = svr_name.split("#")
+        svr_type = svr_name_buffer[0]
+        svr_id   = svr_name_buffer[1]
+        if svr_type == "master_server":
+            if svr_key == "ms" + "900" + svr_id:
+                foundmatch = 1
+        elif svr_type == "data_server":
+            if svr_key == "ds" + "400" + svr_id:
+                foundmatch = 1
+        else:
+            foundmatch = 0
+        if foundmatch:
+            result = "Authorized access"
+            return result
+        else:
+            result = "Denied access"
+            return result
 
     # Build directory for master-server at the beginning
     def build_up(self, root_path):
@@ -120,25 +143,6 @@ class MasterServer(Thread):
             f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" + "Data_server_information.txt", 'w')
             f.flush()
             f.close()
-            
-            
-        ## build the server Address for each dataServer
-        #response = urllib2.urlopen('http://fighterczy.com/ServerAddress.txt')
-        #output = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt",'wb')
-        #output.write(response.read())
-        #output.close()
-        #f = open(root_path + "/" + "Master-Server" + str(self.id) + "/ServerAddress.txt", 'r')
-        #line = 1
-        #groups.append([])
-        #content = f.readline()
-        #while (content):
-        #    content_buffer = re.split('\t', content)
-        #    groups.append([])
-        #    for i in range(0, len(content_buffer)):
-        #        groups[line].append(re.split('\n', content_buffer[i])[0])
-        #    line += 1
-        #    content = f.readline()
-        #f.close()
         
         lock.release_write()
 
@@ -252,7 +256,7 @@ class MasterServer(Thread):
                     tempClient = xmlrpclib.ServerProxy(dataServerName)
                     tempClient.writeLog("here!!!")
                     #writeLog(tempClient.system.listMethods())
-                    tempClient.modifyUserTable(user_name, initial_password)
+                    tempClient.modifyUserTable(user_name, initial_password, self.svr_name, self.key)
                     tempClient = None
                     self.writeLog("start write user_info!\n")
 
@@ -299,7 +303,7 @@ class MasterServer(Thread):
                 self.writeLog(dsvr)
                 tempClient = xmlrpclib.ServerProxy(dsvr)
                 try:
-                    respond = tempClient.query_work("Y/N")
+                    respond = tempClient.query_work("Y/N", self.svr_name, self.key)
                     if respond == True:
                         dsvr_list.append(dsvr)
                 except:
@@ -335,26 +339,31 @@ class MasterServer(Thread):
         f.close()
 
     # This function is used for registering the data-server information in master server
-    def register_dsvr(self, ip_address, id):
+    def register_dsvr(self, ip_address, id, svr_name, svr_key):
         global lock
-        lock.acquire_write()
-        f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'a')
-        f.write("IP_Address:" + str(ip_address) + "          ")
-        group_id = (int(id)+1)/2
-        groups[group_id].append(str(ip_address))
-        f.write("Group_ID:" + str(group_id) + "\n")
-        f.close()
-        lock.release_write()
+        respond = self.security_svr_check(svr_name, svr_key)
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            lock.acquire_write()
+            f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'a')
+            f.write("IP_Address:" + str(ip_address) + "          ")
+            group_id = (int(id)+1)/2
+            groups[group_id].append(str(ip_address))
+            f.write("Group_ID:" + str(group_id) + "\n")
+            f.close()
+            lock.release_write()
+        else:
+            self.writeLog("Denied access to master server\n")
 
-    def register_dsvr_cmd(self, ip_address, id):
+    def register_dsvr_cmd(self, ip_address, id, svr_name, svr_key):
         respond = "Register successfully"
-        nr = self.group.OrderedSend(1, ip_address, id)
+        nr = self.group.OrderedSend(1, ip_address, id, svr_name, svr_key)
         return respond
 
-    def getPeer(self, group_num):
+    def getPeer(self, group_num, svr_name, svr_key):
         #return address of node in the same group
-        IP_Address = groups[int(group_num)][0]
-        return IP_Address
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            IP_Address = groups[int(group_num)][0]
+            return IP_Address
 
     def run(self):
         self.masterserver = ThreadXMLRPCServer((IPAddr, 8000+self.id*100), allow_none=True)
