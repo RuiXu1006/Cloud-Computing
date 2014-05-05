@@ -80,7 +80,7 @@ class InitialPanel(wx.Panel):
     def Sign_upClick(self,event):
         self.Hide()
         # Talk to the master server when signup
-        self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.12:8000/")
+        self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.11:8000/")
         self.GetParent().signupPanel.Show()
         self.GetParent().GetSizer().Layout()
         
@@ -155,8 +155,10 @@ class LoginPanel(wx.Panel):
         svrName = self.select_dserver(user_name)
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
-            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.12:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.11:8000/")
             respond, svr_list = self.GetParent().master.query_server(user_name)
+            if not os.path.exists(root_path+"/"+user_name):
+                os.mkdir(root_path+"/"+user_name)
             if respond == "Found":
                 f = open(root_path+"/"+user_name+"/svrName.txt", 'w+')
                 for index in range(0, len(svr_list)):
@@ -199,7 +201,7 @@ class LoginPanel(wx.Panel):
                 self.GetParent().GetSizer().Layout()
         except:
             # Then client asks master servers to update current available data server list
-            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.12:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.11:8000/")
             respond, svr_list = self.GetParent().master.update_dsvr(user_name)
             # Then update local available data server list
             if not os.path.exists(root_path+"/"+user_name):
@@ -329,7 +331,7 @@ class functionMenuBar(wx.MenuBar):
 
 class ListPanel(wx.Panel):
     def __init__(self, parent):
-        wx.Panel.__init__(self, parent=parent, size=(400,350),style=wx.ALIGN_CENTER)
+        wx.Panel.__init__(self, parent=parent,style=wx.ALIGN_CENTER)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
         filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
@@ -399,13 +401,14 @@ class ListPanel(wx.Panel):
         sel = self.listbox.GetSelection()
         file_name = self.listbox.GetString(sel)
         
-        shareDia = ShareDialog(file_name)
+        shareDia = ShareDialog(file_name, self.GetParent())
         shareDia.ShowModal()
 
 class ShareDialog(wx.Dialog):
-    def __init__(self, filename):
+    def __init__(self, filename,parent):
         wx.Dialog.__init__(self, None)
         self.filename = filename
+        self.parent = parent
         self.SetSize((200, 150))
         self.SetTitle("Share file")
 
@@ -426,17 +429,18 @@ class ShareDialog(wx.Dialog):
 
     def SubmitClick(self, event):
         #TODO: share this file to a user
-        respond = self.GetParent.client.share_File(self.GetParent().username, self.filename, 
-            self.text.GetValue(), self.GetParent().key)
+        respond = self.parent.client.share_File(self.parent.username, self.filename, 
+            self.text.GetValue(), self.parent.key)
+        print respond
         if respond == 'share file successfully':
             wx.MessageBox('Share file successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
         else:
             wx.MessageBox('Share file failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
-        self.Destroy()
+        self.parent.GetSizer().Layout()
 
 class SharePanel(wx.Panel):
     def __init__(self, parent):
-        wx.Panel.__init__(self, parent=parent, size=(400,350),style=wx.ALIGN_CENTER)
+        wx.Panel.__init__(self, parent=parent,style=wx.ALIGN_CENTER)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
         # TODO: filelist of files that are shared to this user
@@ -515,6 +519,7 @@ class ChangePassPanel(wx.Panel):
     
     def SubmitClick(self,event):
         respond = self.GetParent().client.change_password(self.GetParent().username, self.text0.GetValue(), self.text1.GetValue())
+        print respond
         if respond == "Change password successfully":
             wx.MessageBox('Change password successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
             self.Hide()
