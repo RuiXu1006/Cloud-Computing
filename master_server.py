@@ -95,6 +95,7 @@ class MasterServer(Thread):
         self.group.RegisterHandler(0, Action[str, str](self.writeServerInfo))
         self.group.RegisterHandler(1, Action[str, str, str, str](self.register_dsvr))
         self.group.RegisterHandler(2, Action[str](self.update_dsvrinfo))
+        self.group.RegisterHandler(3, Action[str, str, str, str](self.updateSharedFile))
         self.group.Join()
 
     # Security check function will check whether key matches with given data serve name
@@ -341,8 +342,12 @@ class MasterServer(Thread):
         self.writeLog("enter in updateSharedFile")
         if (shared_record.has_key(toWho) != True):
             shared_record[toWho] = dict();
-        shared_record[toWho][filename] = [fromWho, groupID]
-            
+        shared_record[toWho][filename] = [fromWho, groupID]        
+        return
+
+    def updateSharedFile_cmd(self, filename, fromWho, toWho, groupID):
+        self.writeLog("enter in ISIS updateSharedFile")
+        nr = self.group.OrderedSend(3, filename, fromWho, toWho, groupID)
         return
     
     def getSharingFiles(self, username):
@@ -354,7 +359,7 @@ class MasterServer(Thread):
         
     def downloadFiles(self, filename, username):
         self.writeLog("enter master's download shared")
-        groupInfo = shared_record[username][filename][1];
+        groupInfo = int(shared_record[username][filename][1])
         dServer = xmlrpclib.ServerProxy(groups[groupInfo][0])
         dUser = shared_record[username][filename][0]
         respond = dServer.download_files(dUser, filename, 8888)
@@ -406,7 +411,7 @@ class MasterServer(Thread):
         self.masterserver.register_function(self.getPeer, "getPeer")
 
 ##sharing files functions
-        self.masterserver.register_function(self.updateSharedFile, "updateSharedFile")
+        self.masterserver.register_function(self.updateSharedFile_cmd, "updateSharedFile")
         self.masterserver.register_function(self.getSharingFiles, "getSharingFiles")
         self.masterserver.register_function(self.downloadFiles, "downloadFiles")
 

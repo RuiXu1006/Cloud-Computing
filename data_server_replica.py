@@ -614,29 +614,42 @@ class MultiServer(Thread):
                 self.group.Reply(-1)
                 return
 ## file_sharing function
-    def share_File(self, fromWho, filename, toWho):
+    def share_File(self, fromWho, filename, toWho, key):
         #send to master sever
         self.writeLog("enter in share_file")
-        master = xmlrpclib.ServerProxy("http://localhost:8000/")
-        master.updateSharedFile(filename, fromWho, toWho, self.groupID)
-        return
+        if self.security_check(fromWho, key) == "denied access":
+            respond = "You have no right to use this function"
+        else:
+            master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            master.updateSharedFile(filename, fromWho, toWho, str(self.groupID))
+            respond = "share file sucessfully"
+        return respond
 
 ## file_sharing function
-    def list_SharedFiles(self, user_name):
+    def list_SharedFiles(self, user_name, key):
         #retrieve info from master server
         self.writeLog("enter in list_share")
-        master = xmlrpclib.ServerProxy("http://localhost:8000/")
-        files = master.getSharingFiles(user_name)
-        return files
+        files = []
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+        else:
+            master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            files = master.getSharingFiles(user_name)
+            respond = "list shared successfully"
+        return respond, files
 
 ## file_sharing function
-    def download_SharedFiles(self,filename,user_name):
+    def download_SharedFiles(self,filename,user_name, key):
         # call the specific dataServer
         self.writeLog("enter download sharedFiles")
-        master = xmlrpclib.ServerProxy("http://localhost:8000/")
-        respond = master.downloadFiles(filename,user_name)
-        self.writeLog("finish fetching file")
-        return respond
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+        else:
+            master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            data = master.downloadFiles(filename,user_name)
+            self.writeLog("finish fetching file")
+            respond = "download shared file successfully"
+        return respond, data
 
     def modifyUserTable_cmd(self,user_name, initial_password, svr_name, svr_key):
         respond = True

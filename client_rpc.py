@@ -369,13 +369,13 @@ while True:
         try:
             filename = raw_input("Please enter the filename:")
             toWho = raw_input("Please enter the user you want to share file with:")
-            client.share_File(user_name, filename, toWho)
+            res = client.share_File(user_name, filename, toWho , work_key)
         except:
             print "There are some errors when sharing specific file"
 # list shared files
     elif state == 12:
         try:
-            file_list = client.list_SharedFiles(user_name)
+            res, file_list = client.list_SharedFiles(user_name, work_key)
             for files in file_list:
                 print files
         except:
@@ -385,8 +385,9 @@ while True:
         try:
             file_name = raw_input("Please enter the filename:")
             file_location = work_path + "/" + file_name
+            res, data = client.download_SharedFiles(file_name,user_name, work_key)
             with open(file_location, "wb") as handle:
-                handle.write(client.download_SharedFiles(file_name,user_name).data)
+                handle.write(data.data)
             print "From client - Downloading shared file successfully"
         except:
             print "There are some errors when downloading shared files"
@@ -394,8 +395,9 @@ while True:
         try:
             file_name = raw_input("Please enter the filename:")
             file_location = work_path + "/" + file_name
+            res, data = client.download_SharedFiles(file_name,user_name)
             with open(file_location, "wb") as handle:
-                handle.write(client.download_SharedFiles(file_name,user_name).data)
+                handle.write(data.data)
             file_location = work_path + "/" + file_name
             #firstly need to make sure that the file uploaded does exist
             if os.path.exists(file_location):
