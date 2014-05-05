@@ -80,7 +80,7 @@ class InitialPanel(wx.Panel):
     def Sign_upClick(self,event):
         self.Hide()
         # Talk to the master server when signup
-        self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
+        self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.12:8000/")
         self.GetParent().signupPanel.Show()
         self.GetParent().GetSizer().Layout()
         
@@ -155,7 +155,7 @@ class LoginPanel(wx.Panel):
         svrName = self.select_dserver(user_name)
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
-            self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.12:8000/")
             respond, svr_list = self.GetParent().master.query_server(user_name)
             if respond == "Found":
                 f = open(root_path+"/"+user_name+"/svrName.txt", 'w+')
@@ -199,7 +199,7 @@ class LoginPanel(wx.Panel):
                 self.GetParent().GetSizer().Layout()
         except:
             # Then client asks master servers to update current available data server list
-            self.GetParent().master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.12:8000/")
             respond, svr_list = self.GetParent().master.update_dsvr(user_name)
             # Then update local available data server list
             if not os.path.exists(root_path+"/"+user_name):
@@ -426,9 +426,9 @@ class ShareDialog(wx.Dialog):
 
     def SubmitClick(self, event):
         #TODO: share this file to a user
-        #respond = self.GetParent.client.share_file(username, filename,key)
-        respond = 'Share successfully'
-        if respond == 'Share successfully':
+        respond = self.GetParent.client.share_File(self.GetParent().username, self.filename, 
+            self.text.GetValue(), self.GetParent().key)
+        if respond == 'share file successfully':
             wx.MessageBox('Share file successfully!', 'Info', wx.OK | wx.ICON_INFORMATION)
         else:
             wx.MessageBox('Share file failed!', 'Info', wx.OK | wx.ICON_INFORMATION)
@@ -440,8 +440,8 @@ class SharePanel(wx.Panel):
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         
         # TODO: filelist of files that are shared to this user
-        # filelist = self.GetParent().client.list_shared(username, key)
-        filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
+        respond, filelist = self.GetParent().client.list_SharedFiles(self.GetParent().username, self.GetParent().key)
+        #filelist = self.GetParent().client.list_files(self.GetParent().username, "", self.GetParent().key)
         self.listbox = wx.ListBox(self, -1, choices=filelist)
         hbox.Add(self.listbox, 1, wx.EXPAND | wx.ALL, 20)
         
@@ -472,12 +472,12 @@ class SharePanel(wx.Panel):
         file_name = self.listbox.GetString(sel)
         
         # TODO: need to call server rpc to get data from another server
-        # data = self.GetParent().client.get_shared(username, filename, key)
+        respond, data = self.GetParent().client.download_SharedFiles(file_name, username, self.GetParent().key)
         if not (os.path.exists(user_folder)):
             os.mkdir(user_folder)
         file_location = user_folder + "/" + file_name
         with open(file_location, "wb") as handle:
-            handle.write(self.GetParent().client.download_files(username, file_name, self.GetParent().key).data)
+            handle.write(data.data)
 
     def OnReturn(self, event):
         self.Hide()
