@@ -15,6 +15,7 @@ from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from SocketServer import ThreadingMixIn
 import threading
 import time
+import shutil
 from threading import Thread, Lock, Condition
 import random
 from os.path import join, getsize
@@ -35,8 +36,8 @@ server_record = dict()
 global root_path
 # Firstly, get the home directory of the computer
 home_dir = os.path.expanduser("~")
-root_path = home_dir + "/" + "CloudBox"
-server_information = root_path + "/" + "Master-Server/Server_information.txt"
+root_path = home_dir + "\\" + "CloudBox"
+server_information = root_path + "\\" + "Master-Server\Server_information.txt"
 
 IsisSystem.Start()
 # This Lock class will used for the synchronization in data servers
@@ -70,33 +71,39 @@ class ReadWriteLock:
         self._read_ready.release()
 
 class MultiServer(Thread):
-    def __init__(self,id):
+    def __init__(self, id, recover):
         Thread.__init__(self)
         self.id =id
+        self.groupID = (self.id+1)/2
+        self.key = "ds400" + str(self.id)
+        self.svr_name = "data_server#" + str(self.id)
         self.IPAddr = IPAddr
-        self.groupID = (id+1)/2
         self.svrName = "http://"+self.IPAddr+":"+ str(8000+self.id)+"/"
-        self.user_information = root_path + "/" + str(self.id) + "/" + "User_information.txt"
-        self.running_log = root_path + "/" + str(self.id) + "/" + "Running_Log.txt"
+        self.user_information = root_path + "\\" + str(self.id) + "\\" + "User_information.txt"
+        self.running_log = root_path + "\\" + str(self.id) + "\\" + "Running_Log.txt"
         # This dictionary is used for storing user information in data server
         self.user_record = dict()
         # This dictionary is used for access key for different users
         self.key_table = dict()
         # two servers will be assigned into one group
         self.group = Group("group"+str((id+1)/2))
+        self.group_num = (id+1)/2
+        self.recover = recover
         # Register Handlers in the group
         self.group.RegisterHandler(0, Action[str, str, str, str](self.upload_files))
         self.group.RegisterHandler(1, Action[str, str](self.update_keytable))
         self.group.RegisterHandler(2, Action[str, str, str](self.delete_files))
         self.group.RegisterHandler(3, Action[str, str, str](self.change_password))
         self.group.RegisterHandler(4, Action[str, str](self.update_user_record))
-        self.group.RegisterHandler(5, Action[str, str](self.modifyUserTable))
+        self.group.RegisterHandler(5, Action[str, str, str, str](self.modifyUserTable))
         self.group.RegisterHandler(6, Action[str, str](self.log_out))
+        self.group.RegisterHandler(7, Action[str, str, str, str](self.make_directory))
+        self.group.RegisterHandler(8, Action[str, str, str, str](self.delete_directory))
         self.group.Join()
     # Security check function will check whether key matches with given user_name
     def security_check(self,user_name, key):
         foundmatch = False
-        # the inside special key 8888
+        # for sharing file test
         if key == 8888:
             return user_name
         for key in self.key_table:
@@ -105,6 +112,26 @@ class MultiServer(Thread):
         if ~foundmatch:
             result = "denied access"
             return result
+
+    # Security check function will check whether key matches with given data serve name
+    def security_svr_check(self, svr_name, svr_key):
+        foundmatch = False
+        svr_name_buffer = svr_name.split("#")
+        svr_type = svr_name_buffer[0]
+        svr_id   = svr_name_buffer[1]
+        if svr_type == "master_server":
+            if svr_key == "ms" + "900" + svr_id:
+                foundmatch = True
+        elif svr_type == "data_server":
+            if svr_key == "ds" + "400" + svr_id:
+                foundmatch = True
+        if foundmatch:
+            result = "Authorized access"
+            return result
+        else:
+            result = "Denied access"
+            return result
+
      
     # This function is used for server to build directories at the beginning
     def build_up(self,root_path):
@@ -114,14 +141,14 @@ class MultiServer(Thread):
     # create root directory for servers
         if not (os.path.exists(root_path)):
             os.mkdir(root_path)
-        if not (os.path.exists(root_path+"/"+str(self.id))):
-            os.mkdir(root_path+"/"+str(self.id))
+        if not (os.path.exists(root_path+"\\"+str(self.id))):
+            os.mkdir(root_path+"\\"+str(self.id))
     # Then, based on the user_record, tests whether each user has its own directory
     # or not, if not, building corresponding folders
-        user_folder = root_path + "/default"
+        user_folder = root_path + "\default"
         """" the creation of user fold should not build in this function
         for user_name in user_record:
-            user_folder = root_path + "/" +str(self.id) +"/" + user_name;
+            user_folder = root_path + "\\" +str(self.id) +"\\" + user_name;
         """
         if not (os.path.exists(user_folder)):
             os.mkdir(user_folder)
@@ -133,6 +160,9 @@ class MultiServer(Thread):
             f = open(self.running_log, 'w+')
         f.close()
         lock.release_write()
+        tmpclient = xmlrpclib.ServerProxy("http://localhost:8000/")
+        ip_address = "http://" + IPAddr + ":800" + str(self.id) + "/"
+        respond = tmpclient.register_dsvr(ip_address, str(self.id), self.svr_name, self.key)
     
     # send command to all members in the group to prepare for updating their own user_record
     def update_user_record_cmd(self, user_name, password):
@@ -273,7 +303,7 @@ class MultiServer(Thread):
             respond = "You have no right to use this function"
         else:
             current_user = self.security_check(user_name, key)
-            work_path = root_path + "/" +str(self.id) +"/" + current_user + "/" + rel_path
+            work_path = root_path + "\\" +str(self.id) +"\\" + current_user + "\\" + rel_path
             file_list = os.listdir(work_path)
             respond = file_list
         lock.release_write()
@@ -292,7 +322,7 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
             # get the work path from the information sent by client
-            work_path = root_path + "/" + str(self.id) +"/" + current_user + rel_path
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user + rel_path
             #self.writeLog(str(work_path) + "\n")
     # Firstly, check if that this path exist or not
         if os.path.exists(work_path):
@@ -317,7 +347,7 @@ class MultiServer(Thread):
         else:
             current_user = self.security_check(user_name, key)
     # set the path of root directory, and found flag to be false
-            work_path = root_path + "/" + str(self.id) +"/" + current_user
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user
             foundmatch = False
     # With the use of os.walk, go through all files in file system
             for root, dirs, files in os.walk(work_path):
@@ -336,25 +366,51 @@ class MultiServer(Thread):
         lock.release_write()    
         return respond
 
+    # This function is used for search directory in the file system
+    # of data server, if there is required file, return True,
+    # otherwise return false
+    def search_dirs(self,user_name, dir_name, key):
+        global lock
+        lock.acquire_write()
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+        else:
+            current_user = self.security_check(user_name, key)
+    # set the path of root directory, and found flag to be false
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user
+            foundmatch = False
+    # With the use of os.walk, go through all files in file system
+            for root, dirs, files in os.walk(work_path):
+    # If file found, set found flag, and get the location of file
+                if dir_name in dirs:
+                    dir_location = os.path.join(root, dir_name)
+                    foundmatch = True
+                    break
+    # If flag is true, found file and return the location
+            if foundmatch:
+                respond = dir_location
+    # If flag is false, return false information
+            else:
+                respond = "Not found"
+        
+        lock.release_write()    
+        return respond
+
     # This function is used for downloading files to client
     def download_files(self,user_name, file_name, key):
         global lock
         lock.acquire_write()
-        if key == 8888:
-            self.writeLog("enter into other server's download part")
         if self.security_check(user_name, key) == "denied access":
             respond = "You have no right to use this function"
         else:
-            self.writeLog("here1")
             current_user =  self.security_check(user_name, key)
     # set the path root directory, and found flag to be false
-            work_path = root_path + "/" + str(self.id) +"/" + current_user
+            work_path = root_path + "\\" + str(self.id) +"\\" + current_user
     # get the file location of give file
             file_location = self.search_files(user_name, file_name, key)
-            self.writeLog( "From server - The download file locates at " + file_location)
+            self.writeLog("From server - The download file locates at " + file_location)
             with open(file_location, "rb") as handle:
                 respond = xmlrpclib.Binary(handle.read())
-            self.writeLog("here2")
         lock.release_write()
         return respond
     
@@ -391,8 +447,11 @@ class MultiServer(Thread):
             current_user = self.security_check(user_name, key)
     # set the root directory to store upload files, and get
     # the file location
-            work_path = root_path + "/" + str(self.id) +"/" +current_user;
-            file_location = work_path + "/" + file_name
+            work_path = root_path + "\\" + str(self.id) +"\\" +current_user;
+            file_location = work_path + "\\" + file_name
+            file_dir = '\\'.join(file_location.split('\\')[:-1])
+            if not os.path.exists(file_dir):
+                os.makedirs(file_dir)
             with open(file_location, "wb") as handle:
                 handle.write(transmit_data)
             lock.release_write()
@@ -441,6 +500,92 @@ class MultiServer(Thread):
                 break
         return respond
     
+    # This function is used for making directory in the data server
+    def make_directory(self, rel_path, dir_name, user_name, key):
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+            self.group.Reply(-1)
+            return
+        else:
+            current_user = self.security_check(user_name, key)
+            # firstly check whether this directory exists
+            if (os.path.exists(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)):
+                respond = "This directory has existed!"
+                self.group.Reply(0)
+                return
+            else:
+                os.mkdir(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)
+                respond = "Making directory successfully!"
+                self.group.Reply(1)
+                return
+
+    def make_directory_cmd(self, rel_path, dir_name, user_name, key):
+        reply = 1
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 7, rel_path, dir_name, user_name, key, EOLMarker(), res)
+        for res_g in res:
+            if ( res_g == -1 ):
+                reply = -1
+                break
+            elif ( res_g == 0 ):
+                reply = 0
+                break
+        if reply == 1:
+            respond = "Make directory successfully!"
+        elif reply == -1:
+            respond = "You have no right to use this function"
+        else:
+            respond = "This directory has existed!"
+        return respond
+
+    # This function is used for deleting directory
+    def delete_directory(self, rel_path, dir_name, user_name, key):
+        if self.security_check(user_name, key) == "denied access":
+            respond = "You have no right to use this function"
+            self.group.Reply(-1)
+            return
+        else:
+            current_user = self.security_check(user_name, key)
+            # firstly check whether this directory exists
+            if not (os.path.exists(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)):
+                respond = "This directory doesn't exist"
+                self.group.Reply(0)
+                return
+            elif not (os.path.isdir(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)):
+                respond = "This is not a directory"
+                self.group.Reply(2)
+                return
+            else:
+                shutil.rmtree(root_path + "\\" + str(self.id) + "\\" + current_user + rel_path + "\\" + dir_name)
+                respond = "Deleting directory successfully!"
+                self.group.Reply(1)
+                return
+
+    def delete_directory_cmd(self, rel_path, dir_name, user_name, key):
+        reply = 1
+        res = []
+        nr = self.group.OrderedQuery(Group.ALL, 8, rel_path, dir_name, user_name, key, EOLMarker(), res)
+        for res_g in res:
+            if ( res_g == -1 ):
+                reply = -1
+                break
+            elif ( res_g == 0 ):
+                reply = 0
+                break
+            elif ( res_g == 2 ):
+                reply = 2
+                break
+        if reply == 1:
+            respond = "Deleting directory successfully!"
+        elif reply == -1:
+            respond = "You have no right to use this function"
+        elif reply == 2:
+            respond = "This is not a directory"
+        else:
+            respond = "This directory doesn't exist!"
+        return respond
+
+    # This function is used for users' logging out
     def log_out_cmd(self, user_name, key):
         reply = True
         res = []
@@ -468,7 +613,6 @@ class MultiServer(Thread):
             else:
                 self.group.Reply(-1)
                 return
-
 ## file_sharing function
     def share_File(self, fromWho, filename, toWho):
         #send to master sever
@@ -494,69 +638,87 @@ class MultiServer(Thread):
         self.writeLog("finish fetching file")
         return respond
 
-    def modifyUserTable_cmd(self,user_name, initial_password):
+    def modifyUserTable_cmd(self,user_name, initial_password, svr_name, svr_key):
         respond = True
         res = []
-        nr = self.group.OrderedQuery(Group.ALL, 5, user_name,initial_password, EOLMarker(), res)
+        nr = self.group.OrderedQuery(Group.ALL, 5, user_name,initial_password, svr_name, svr_key, EOLMarker(), res)
         for reply in res:
             if (reply == -1):
                 respond = False
                 break
         return respond
 
-    def modifyUserTable(self, user_name, initial_password):
-        self.writeLog("modifying User Table")
-        svr.user_record[user_name] = initial_password
-        self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
-        f = open(root_path + "/" + str(self.id) + "/" + "User_information.txt", 'a')
-        content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
-        f.write(content)
-        f.close()
-        self.writeLog("finish write to file on server"+ "800"+ str(self.id))
-        # build file folder for new users
-        new_dir = root_path + "/" + str(self.id) + "/" + user_name
-        os.mkdir(new_dir)
-        self.group.Reply(1)
-        return
+    def modifyUserTable(self, user_name, initial_password, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            self.writeLog("modifying User Table")
+            svr.user_record[user_name] = initial_password
+            self.writeLog(str(self.id) + " "+ str(user_name) + " " + str(initial_password)+"\n")
+            f = open(root_path + "\\" + str(self.id) + "\\" + "User_information.txt", 'a')
+            content = "Username: " + user_name + "    " + "Password: " + initial_password+"\n"
+            f.write(content)
+            f.close()
+            self.writeLog("finish write to file on server"+ "800"+ str(self.id))
+            # build file folder for new users
+            new_dir = root_path + "\\" + str(self.id) + "\\" + user_name
+            os.mkdir(new_dir)
+            self.group.Reply(1)
+            return
+        else:
+            self.group.Reply(-1)
+            return
 
     # This function is used for proving that the data server currently works
-    def query_work(self, str):
-        return True
+    def query_work(self, str, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            return True
+        else:
+            return False
 
     def writeLog(self, log):
-        f = open(root_path + "/" + "Running_Log.txt", 'a')
+        f = open(root_path + "\\" + "Running_Log.txt", 'a')
         f.write(str(datetime.datetime.now()) + "\n")
         f.write(log)
         f.close()
 
-    #def copyFile(self, addr):
-    #    dest_server = xmlrpclib.ServerProxy("dest\server\addr")
-    #    sourcePath = "source\path"
-    #    destPath = "dest\path"
-    #    for root, dirs, files in os.walk(sourcePath):
-    #        dest = root.replace(sourcePath, '')
+    def getFilelist(self, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            file_list = []
+            sourcePath = root_path + "\\" + str(self.id) + "\\"
+            for root, dirs, files in os.walk(sourcePath):
+                for f in files:
+                    file_abspath = os.path.join(root, f)
+                    file_relpath = os.path.relpath(file_abspath, root_path + "\\" + str(self.id) + "\\")
+                    file_list.append(file_relpath)
 
-    #        for f in files:
-    #            with open(f, "rb") as handle:
-    #                fileData = xmlrpclib.Binary(handle.read())
-    #                dest_server.recvFile(f, fileData)
-    
-    #def recvFile(self, fileLoc, fileData):
-    #    with open(fileLoc, "w+") as handle:
-    #            handle.write(fileData)
+        return file_list
+
+    def getfilelist_client(self, user_name, key, dir_location):
+        if self.security_check(user_name, key) == "denied access":
+            file_list = ["none"]
+        else:
+            file_list = []
+            for root, dirs, files in os.walk(dir_location):
+                for f in files:
+                    file_abspath = os.path.join(root, f)
+                    file_relpath = os.path.relpath(file_abspath, dir_location)
+                    file_list.append(file_relpath)
+        return file_list
+
+    def copyFile(self, fileLoc, svr_name, svr_key):
+        if self.security_svr_check(svr_name, svr_key) == "Authorized access":
+            sourcePath = root_path + "\\" + str(self.id) + "\\"
+            with open(sourcePath + fileLoc, "rb") as handle:
+                self.writeLog("Copying file" + sourcePath+fileLoc+'\n')
+                filedata = xmlrpclib.Binary(handle.read())
+
+        return filedata
+
 
     def run(self):
         global server
         server[self.id] = ThreadXMLRPCServer((IPAddr, 8000+self.id), allow_none=True)
         
-        #print "port %d" %(self.id+8000) + " is established!"
-        #connect to master server to obtain server in the same group
-        #master_server = xmlrpclib.ServerProxy("master_server_address")
-        #peer_addr = master_server.getPeer()
-        #peer_server = xmlrpclib.ServerProxy(peer_addr)
-        #peer_server.copyFile(self_addr)
-
-        
+        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         self.build_up(root_path)
         self.build_user_record()
         server[self.id].register_introspection_functions()
@@ -567,22 +729,41 @@ class MultiServer(Thread):
         server[self.id].register_function(self.list_files, "list_files")
         server[self.id].register_function(self.change_directory, "change_directory")
         server[self.id].register_function(self.search_files, "search_files")
+        server[self.id].register_function(self.search_dirs,  "search_dirs")
         server[self.id].register_function(self.download_files, "download_files")
         server[self.id].register_function(self.upload_files_cmd, "upload_files")
         server[self.id].register_function(self.delete_files_cmd, "delete_files")
+        server[self.id].register_function(self.make_directory_cmd, "make_directory")
+        server[self.id].register_function(self.delete_directory_cmd, "delete_directory")
         server[self.id].register_function(self.log_out_cmd, "log_out")
         server[self.id].register_function(self.query_work,"query_work")
-        
-        
+        server[self.id].register_function(self.getFilelist,"getFilelist")
+        server[self.id].register_function(self.getfilelist_client,"getfilelist_client")
+        server[self.id].register_function(self.copyFile,"copyFile")
+
         #### sharing file
         server[self.id].register_function(self.share_File, "share_File")
         server[self.id].register_function(self.list_SharedFiles, "list_SharedFiles")
         server[self.id].register_function(self.download_SharedFiles, "download_SharedFiles")
-        
-        
-        #server[self.id].register_function(self.copyFile,"copyFile")
-        #server[self.id].register_function(self.recvFile,"recvFile")
-        self.writeLog("port " + str(self.id + 8000) + " is established!\n")
+
+
+        #connect to master server to obtain server in the same group
+        if self.recover:
+            master_server = xmlrpclib.ServerProxy("http://" + IPAddr + ":8000/")
+            peer_addr = master_server.getPeer(self.group_num, self.svr_name, self.id)
+            peer_server = xmlrpclib.ServerProxy(peer_addr)
+            file_list = peer_server.getFilelist(self.svr_name, self.key)
+            for f in file_list:
+                fileLoc = root_path + "\\" + str(self.id) + "\\" + f
+                fileDir = '\\'.join(fileLoc.split('\\')[:-1])
+                self.writeLog("The file directory is " + fileDir + "\n")
+                if not os.path.exists(fileDir):
+                    os.makedirs(fileDir)
+                fileData = peer_server.copyFile(f, self.svr_name, self.key)
+                with open(fileLoc, "wb+") as handle:
+                    handle.write(fileData.data)
+
+
         server[self.id].serve_forever()
 
 lock = ReadWriteLock()
@@ -590,9 +771,13 @@ lock = ReadWriteLock()
 server = [1]*serverNum
 
 id = int(sys.argv[1])
-svr = MultiServer(id);
+recover = bool(int(sys.argv[2]))
+svr = MultiServer(id, recover);
 svr.start()
 
 IsisSystem.WaitForever()
+
+
+
 
 
