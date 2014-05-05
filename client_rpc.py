@@ -11,6 +11,10 @@ if not (os.path.exists(root_path)):
 
 # find which server to put data
 
+
+# the IPAddress of MasterServers
+IPAddr = "localhost"
+
 # the total number of server
 svrNum = 9
 
@@ -29,6 +33,12 @@ global work_key
 user_name = ""
 svr_list = []
 print "Note: At the beginning, you should login in firstly!"
+
+
+# this function is used for random select from master server
+def select_master():
+    ret = "http://" + IPAddr+ ":" + str(8000+random.randint(0,1)*100) +"/"
+    return ret
 
 # This function is used for selecting data server from clients side
 def select_dserver():
@@ -90,10 +100,16 @@ while True:
         state = 8
     elif function == "log_out":
         state = 9
-    elif function == "make_directory":
+    elif function == "share_file":
         state = 10
-    else:
+    elif function == "list_shared":
         state = 11
+    elif function == "download_shared":
+        state = 12
+    elif function == "fork_shared":
+        state = 13
+    else:
+        state = 14
 
 # call login_in function to login into the remote server
     if state == 0:    
@@ -101,7 +117,7 @@ while True:
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        client = xmlrpclib.ServerProxy(select_master())
         svrName = select_dserver()
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
@@ -117,38 +133,36 @@ while True:
                 f.close()
             svrName = select_dserver()
 
-            # If unable to connect with data server, the client will ask the master server
-            # to update avaible data server list, and re-login again
+        # If unable to connect with data server, the client will ask the master server
+        # to update avaible data server list, and re-login again
         try:
-            if svrName != 0:
-                client = xmlrpclib.ServerProxy(str(svrName))
-                #print user_name + " || "+ password
-                respond, svrName = client.login_in(user_name, password)
-                svrName = "http://localhost:" + str(svrName) + "/"
-                print respond, svrName
-                respond_buffer = respond.split('#')
-                respond = respond_buffer[0]
-                print svrName
-                print "From client - " + respond
-                # if login in successfully, building sub-folders for this user in
-                # the local folder
-                if respond == "Login in successfully":
-                    rel_path = ""
-                    work_key = respond_buffer[1]
-                    print "From client - the key is " + work_key
-                    user_folder = root_path + "/" + user_name
-                    if not (os.path.exists(user_folder)):
-                        os.mkdir(user_folder)
-                    #f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
-                    #f.write(str(svrName))
-                    #f.close()
-                    work_path = user_folder
-            else:
-                print "From client - Error: this username doesn't exist, please sign up firstly"
+            #print "HHHHH" + str(svrName)
+            client = xmlrpclib.ServerProxy(str(svrName))
+            #print user_name + " || "+ password
+            respond, svrName = client.login_in(user_name, password)
+            #svrName = "http://" + IPAddr + ":" + str(svrName) + "/"
+            #print respond, svrName
+            respond_buffer = respond.split('#')
+            respond = respond_buffer[0]
+            print svrName
+            print "From client - " + respond
+            # if login in successfully, building sub-folders for this user in
+            # the local folder
+            if respond == "Login in successfully":
+                rel_path = ""
+                work_key = respond_buffer[1]
+                print "From client - the key is " + work_key
+                user_folder = root_path + "/" + user_name
+                if not (os.path.exists(user_folder)):
+                    os.mkdir(user_folder)
+                #f = open(root_path+"/"+user_name+"/svrName.txt", 'w')
+                #f.write(str(svrName))
+                #f.close()
+                work_path = user_folder
         except:
             print "Unable to connect with data server"
             # Then client asks master servers to update current available data server list
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")
+            client = xmlrpclib.ServerProxy(select_master())
             respond, svr_list = client.update_dsvr(user_name)
             print svr_list
             # Then update local available data server list
@@ -161,7 +175,7 @@ while True:
             svrName = select_dserver()
             client = xmlrpclib.ServerProxy(str(svrName))
             respond, svrName = client.login_in(user_name, password)
-            svrName = "http://localhost:" + str(svrName) + "/"
+            #svrName = "http://" + IPAddr + ":" + str(svrName) + "/"
             print respond, svrName
             respond_buffer = respond.split('#')
             respond = respond_buffer[0]
@@ -251,7 +265,7 @@ while True:
 # call sign_up function to sign up in the data server
     elif state == 5:
         try:
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")        
+            client = xmlrpclib.ServerProxy(select_master())        
             randNum = random.randint(1,svrNum-1)
 #         print "the randnum is" + str(randNum)
 #         client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
@@ -335,8 +349,7 @@ while True:
             # if cd successfully, update rel_path parameter
             if respond == "cd successfully":
                 rel_path = dir_name
-            print respond
-            print rel_path	    
+            print respond	    
         except:
             print "There are some errors when changing the directory"
 
@@ -348,14 +361,49 @@ while True:
         except:
             print "There are some errors when logging out"
 
-# call the mkdir function to create directory in the data server
+# share file
     elif state == 10:
         try:
-            dir_name = raw_input("Please enter the name of directory you want to create:")
-            respond = client.make_directory(rel_path, str(dir_name), user_name, work_key)
-            print respond
+            filename = raw_input("Please enter the filename:")
+            toWho = raw_input("Please enter the user you want to share file with:")
+            client.share_File(user_name, filename, toWho)
         except:
-            print "There are some errors when making directory"
+            print "There are some errors when sharing specific file"
+# list shared files
+    elif state == 11:
+        try:
+            file_list = client.list_SharedFiles(user_name)
+            for files in file_list:
+                print files
+        except:
+            print "There are some errors when listing shared files"
+# download shared files  instruction "donwload_shared"
+    elif state == 12:
+        try:
+            file_name = raw_input("Please enter the filename:")
+            file_location = work_path + "/" + file_name
+            with open(file_location, "wb") as handle:
+                handle.write(client.download_SharedFiles(file_name,user_name).data)
+            print "From client - Downloading shared file successfully"
+        except:
+            print "There are some errors when downloading shared files"
+    elif state == 13:
+        try:
+            file_name = raw_input("Please enter the filename:")
+            file_location = work_path + "/" + file_name
+            with open(file_location, "wb") as handle:
+                handle.write(client.download_SharedFiles(file_name,user_name).data)
+            file_location = work_path + "/" + file_name
+            #firstly need to make sure that the file uploaded does exist
+            if os.path.exists(file_location):
+                # open the file, reand the content and send these content
+                with open(file_location, "rb") as handle:
+                    transmit_data = xmlrpclib.Binary(handle.read())
+                    respond = client.upload_files(user_name,file_name,transmit_data,work_key)
+                # Based on the respond to output corresponding information
+            print "From client - forking shared file to cloud successfully"
+        except:
+            print "There are some errors when forking shared files"
 # if the function is unrecognized, print Error information
     else:
         print "From client - Unrecognized function, please enter again!"
