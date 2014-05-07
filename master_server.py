@@ -23,7 +23,8 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 
-IPAddr = "localhost"
+MasterIPAddr = "128.253.43.22"
+DataIPAddr = "128.253.43.23"
 
 # total number of server
 serverNum = 8
@@ -282,8 +283,8 @@ class MasterServer(Thread):
         if user_name in group_record:
             groupName = group_record[user_name]
             respond = "Found"
-            for mem in range(0, len(groups[sel_group])):
-                dsvr = groups[sel_group][mem]
+            for mem in range(0, len(groups[int(groupName)])):
+                dsvr = groups[int(groupName)][mem]
                 dsvr_list.append(dsvr)
             return respond, dsvr_list
         else:
@@ -302,7 +303,7 @@ class MasterServer(Thread):
         # Then query the data servers in the same group in one by one, if
         # there is no reply, mark this data server is unavailable
             for mem in range(0, Num_mem):
-                dsvr = "http://" + IPAddr + ":800" + str(2*int(groupName) - 1 + mem) + "/"
+                dsvr = "http://" + DataIPAddr + ":800" + str(2*int(groupName) - 1 + mem) + "/"
                 self.writeLog(dsvr)
                 tempClient = xmlrpclib.ServerProxy(dsvr)
                 try:
@@ -328,8 +329,10 @@ class MasterServer(Thread):
         self.writeLog("Begin modifying in ms" + str(self.id) + "\n")
         f= open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'w')
         for line in lines:
-            con_buffer = re.split('\W+', line)
-            if (con_buffer[1] + "://" + con_buffer[2] + ":"+ con_buffer[3] + '/') != dsvr:
+            con_buffer = re.split(' ', line)
+            self.writeLog("Debug1 "+con_buffer[0])
+            self.writeLog("Debug2 "+dsvr)
+            if (con_buffer[0]) != "IP_Address:" + dsvr:
                 f.write(line)
             else:
                 f.write("")
@@ -380,6 +383,7 @@ class MasterServer(Thread):
             f = open(root_path + "\\" + "Master-Server" +str(self.id) + "\\" +"Data_server_information.txt", 'a')
             f.write("IP_Address:" + str(ip_address) + "          ")
             group_id = (int(id)+1)/2
+            self.writeLog("register dsvr: groupi"+str(group_id))
             groups[group_id].append(str(ip_address))
             f.write("Group_ID:" + str(group_id) + "\n")
             f.close()
@@ -399,7 +403,7 @@ class MasterServer(Thread):
             return IP_Address
 
     def run(self):
-        self.masterserver = ThreadXMLRPCServer((IPAddr, 8000+self.id*100), allow_none=True)
+        self.masterserver = ThreadXMLRPCServer((MasterIPAddr, 8000+self.id*100), allow_none=True)
         
         self.build_up(root_path)
         self.build_group_record()
