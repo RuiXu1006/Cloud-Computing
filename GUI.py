@@ -39,6 +39,8 @@ class simpleapp_wx(wx.Frame):
         #self.welcomePanel.Hide()
         self.changePassPanel = ChangePassPanel(self)
         self.changePassPanel.Hide()
+        self.sharePanel = wx.Panel(self)
+        self.sharePanel.Hide()
         
         self.sizer.Add(self.initialPanel, 1, wx.EXPAND)
         self.sizer.Add(self.loginPanel, 1, wx.EXPAND)
@@ -52,6 +54,8 @@ class simpleapp_wx(wx.Frame):
     def HideAll(self):
         self.listPanel.Hide()
         self.changePassPanel.Hide()
+        if self.sharePanel:
+            self.sharePanel.Hide()
 
 # Panel for sign up or login
 class InitialPanel(wx.Panel):
@@ -80,7 +84,7 @@ class InitialPanel(wx.Panel):
     def Sign_upClick(self,event):
         self.Hide()
         # Talk to the master server when signup
-        self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.11:8000/")
+        self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.22:8000/")
         self.GetParent().signupPanel.Show()
         self.GetParent().GetSizer().Layout()
         
@@ -155,7 +159,7 @@ class LoginPanel(wx.Panel):
         svrName = self.select_dserver(user_name)
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
-            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.11:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.22:8000/")
             respond, svr_list = self.GetParent().master.query_server(user_name)
             if not os.path.exists(root_path+"/"+user_name):
                 os.mkdir(root_path+"/"+user_name)
@@ -201,7 +205,7 @@ class LoginPanel(wx.Panel):
                 self.GetParent().GetSizer().Layout()
         except:
             # Then client asks master servers to update current available data server list
-            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.11:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.22:8000/")
             respond, svr_list = self.GetParent().master.update_dsvr(user_name)
             # Then update local available data server list
             if not os.path.exists(root_path+"/"+user_name):
@@ -311,7 +315,7 @@ class functionMenuBar(wx.MenuBar):
     def Shared_filesClick(self,event):
         self.GetParent().HideAll()
         self.GetParent().sharePanel = SharePanel(self.GetParent())
-        self.GetParent().sizer.Add(self.GetParent().sharePanel, 1, wx.EXPAND)
+        self.GetParent().sizer.Add(self.GetParent().sharePanel, 1, flag= wx.ALIGN_TOP|wx.ALL, border=10)
         self.GetParent().sharePanel.Show()
         self.GetParent().GetSizer().Layout()
 
