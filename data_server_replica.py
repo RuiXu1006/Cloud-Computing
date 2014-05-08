@@ -25,7 +25,8 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 
-IPAddr = "localhost"
+DataIPAddr = "128.253.43.23"
+MasterIPAddr = "128.253.43.22"
 
 # total number of server
 serverNum = 9
@@ -77,7 +78,7 @@ class MultiServer(Thread):
         self.groupID = (self.id+1)/2
         self.key = "ds400" + str(self.id)
         self.svr_name = "data_server#" + str(self.id)
-        self.IPAddr = IPAddr
+        self.IPAddr = DataIPAddr
         self.svrName = "http://"+self.IPAddr+":"+ str(8000+self.id)+"/"
         self.user_information = root_path + "\\" + str(self.id) + "\\" + "User_information.txt"
         self.running_log = root_path + "\\" + str(self.id) + "\\" + "Running_Log.txt"
@@ -160,8 +161,8 @@ class MultiServer(Thread):
             f = open(self.running_log, 'w+')
         f.close()
         lock.release_write()
-        tmpclient = xmlrpclib.ServerProxy("http://localhost:8000/")
-        ip_address = "http://" + IPAddr + ":800" + str(self.id) + "/"
+        tmpclient = xmlrpclib.ServerProxy("http://"+ MasterIPAddr + ":8000/")
+        ip_address = "http://" + DataIPAddr + ":800" + str(self.id) + "/"
         respond = tmpclient.register_dsvr(ip_address, str(self.id), self.svr_name, self.key)
     
     # send command to all members in the group to prepare for updating their own user_record
@@ -620,9 +621,9 @@ class MultiServer(Thread):
         if self.security_check(fromWho, key) == "denied access":
             respond = "You have no right to use this function"
         else:
-            master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            master = xmlrpclib.ServerProxy("http://" +MasterIPAddr + ":8000/")
             master.updateSharedFile(filename, fromWho, toWho, str(self.groupID))
-            respond = "share file sucessfully"
+            respond = "share file successfully"
         return respond
 
 ## file_sharing function
@@ -633,7 +634,7 @@ class MultiServer(Thread):
         if self.security_check(user_name, key) == "denied access":
             respond = "You have no right to use this function"
         else:
-            master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            master = xmlrpclib.ServerProxy("http://" + MasterIPAddr + ":8000/")
             files = master.getSharingFiles(user_name)
             respond = "list shared successfully"
         return respond, files
@@ -645,7 +646,7 @@ class MultiServer(Thread):
         if self.security_check(user_name, key) == "denied access":
             respond = "You have no right to use this function"
         else:
-            master = xmlrpclib.ServerProxy("http://localhost:8000/")
+            master = xmlrpclib.ServerProxy("http://" + MasterIPAddr + ":8000/")
             data = master.downloadFiles(filename,user_name)
             self.writeLog("finish fetching file")
             respond = "download shared file successfully"
@@ -729,7 +730,7 @@ class MultiServer(Thread):
 
     def run(self):
         global server
-        server[self.id] = ThreadXMLRPCServer((IPAddr, 8000+self.id), allow_none=True)
+        server[self.id] = ThreadXMLRPCServer((DataIPAddr, 8000+self.id), allow_none=True)
         
         self.writeLog("port " + str(self.id + 8000) + " is established!\n")
         self.build_up(root_path)
@@ -762,8 +763,8 @@ class MultiServer(Thread):
 
         #connect to master server to obtain server in the same group
         if self.recover:
-            master_server = xmlrpclib.ServerProxy("http://" + IPAddr + ":8000/")
-            peer_addr = master_server.getPeer(self.group_num, self.svr_name, self.id)
+            master_server = xmlrpclib.ServerProxy("http://" + MasterIPAddr + ":8000/")
+            peer_addr = master_server.getPeer(self.group_num, self.svr_name, self.key)
             peer_server = xmlrpclib.ServerProxy(peer_addr)
             file_list = peer_server.getFilelist(self.svr_name, self.key)
             for f in file_list:
