@@ -23,8 +23,8 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 
-MasterIPAddr = "128.253.43.22"
-DataIPAddr = "128.253.43.23"
+MasterIPAddr = "10.33.128.79"
+DataIPAddr = "10.32.38.93"
 
 # total number of server
 serverNum = 8
@@ -177,11 +177,14 @@ class MasterServer(Thread):
 
 # This will be used for get the size of given directory, and it will help balance the
 # load when sign up
-    def getdirsize(self, dir):
-        size = 0L
-        for root, dirs, files in os.walk(dir):
-            size += sum([getsize(join(root, name)) for name in files])
-        return size
+    def getdirsize(self, id):
+        try:
+            data_server = xmlrpclib.ServerProxy("http://" + DataIPAddr + ":800" + str(id) +"/")
+            self.writeLog("RPC connected! here")
+            size = data_server.getdirsize()
+            return size
+        except:
+            return 1000000000L
 
 # Selecting server based on the size of each server, and select the one which has the
 # least size
@@ -191,7 +194,7 @@ class MasterServer(Thread):
         for item in range(1, serverNum, Num_mem):
             temp = 0
             for member in range (0, Num_mem):
-                temp = temp + self.getdirsize(root_path + "\\" + str(item + member))
+                temp = temp + self.getdirsize(item + member)
                 #self.writeLog( "There are %.3f" % (temp)+ "byte in the %d folder" % (item)+"\n")
             self.writeLog( "There are %.3f" % (temp) + "byte in the %d group" % (item) + "\n")
             # if current foler is the minimum one, record it

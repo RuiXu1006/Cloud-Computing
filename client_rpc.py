@@ -167,6 +167,7 @@ while True:
             f.close()
             # Then login in again
             svrName = select_dserver()
+            print "here!" + str(svrName)
             client = xmlrpclib.ServerProxy(str(svrName))
             respond, svrName = client.login_in(user_name, password)
             svrName = "http://10.32.38.93:" + str(svrName) + "/"
