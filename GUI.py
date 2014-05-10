@@ -84,7 +84,7 @@ class InitialPanel(wx.Panel):
     def Sign_upClick(self,event):
         self.Hide()
         # Talk to the master server when signup
-        self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.22:8000/")
+        self.GetParent().master = xmlrpclib.ServerProxy("http://10.33.128.79:8000/")
         self.GetParent().signupPanel.Show()
         self.GetParent().GetSizer().Layout()
         
@@ -159,7 +159,7 @@ class LoginPanel(wx.Panel):
         svrName = self.select_dserver(user_name)
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
-            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.22:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://10.33.128.79:8000/")
             respond, svr_list = self.GetParent().master.query_server(user_name)
             if not os.path.exists(root_path+"/"+user_name):
                 os.mkdir(root_path+"/"+user_name)
@@ -205,7 +205,7 @@ class LoginPanel(wx.Panel):
                 self.GetParent().GetSizer().Layout()
         except:
             # Then client asks master servers to update current available data server list
-            self.GetParent().master = xmlrpclib.ServerProxy("http://128.253.43.22:8000/")
+            self.GetParent().master = xmlrpclib.ServerProxy("http://10.33.128.79:8000/")
             respond, svr_list = self.GetParent().master.update_dsvr(user_name)
             # Then update local available data server list
             if not os.path.exists(root_path+"/"+user_name):
