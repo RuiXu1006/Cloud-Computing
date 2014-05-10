@@ -109,7 +109,7 @@ while True:
         password = raw_input("Please enter your password:")
         svrName = 0
         local_found = False
-        client = xmlrpclib.ServerProxy("http://localhost:8000/")
+        client = xmlrpclib.ServerProxy("http://10.33.128.79:8000/")
         svrName = select_dserver()
         # if not found effective server port in local file, ask for master server
         if svrName == 0:
@@ -132,7 +132,7 @@ while True:
                 client = xmlrpclib.ServerProxy(str(svrName))
                 #print user_name + " || "+ password
                 respond, svrName = client.login_in(user_name, password)
-                svrName = "http://localhost:" + str(svrName) + "/"
+                svrName = "http://10.32.38.93:" + str(svrName) + "/"
                 print respond, svrName
                 respond_buffer = respond.split('#')
                 respond = respond_buffer[0]
@@ -156,7 +156,7 @@ while True:
         except:
             print "Unable to connect with data server"
             # Then client asks master servers to update current available data server list
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")
+            client = xmlrpclib.ServerProxy("http://10.33.128.79:8000/")
             respond, svr_list = client.update_dsvr(user_name)
             print svr_list
             # Then update local available data server list
@@ -169,7 +169,7 @@ while True:
             svrName = select_dserver()
             client = xmlrpclib.ServerProxy(str(svrName))
             respond, svrName = client.login_in(user_name, password)
-            svrName = "http://localhost:" + str(svrName) + "/"
+            svrName = "http://10.32.38.93:" + str(svrName) + "/"
             print respond, svrName
             respond_buffer = respond.split('#')
             respond = respond_buffer[0]
@@ -259,7 +259,7 @@ while True:
 # call sign_up function to sign up in the data server
     elif state == 5:
         try:
-            client = xmlrpclib.ServerProxy("http://localhost:8000/")        
+            client = xmlrpclib.ServerProxy("http://10.33.128.79:8000/")        
             randNum = random.randint(1,svrNum-1)
 #         print "the randnum is" + str(randNum)
 #         client = xmlrpclib.ServerProxy("http://localhost:800"+str(randNum)+"/")
