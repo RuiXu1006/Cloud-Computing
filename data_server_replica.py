@@ -25,8 +25,8 @@ class ThreadXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 
-DataIPAddr = "128.253.43.23"
-MasterIPAddr = "128.253.43.22"
+DataIPAddr = "10.32.38.93"
+MasterIPAddr = "10.33.128.79"
 
 # total number of server
 serverNum = 9
@@ -727,6 +727,11 @@ class MultiServer(Thread):
 
         return filedata
 
+    def getdirsize(self):
+        dir_size = 0L
+        for root, dirs, files in os.walk(root_path + "\\" + str(self.id)):
+            dir_size += sum([getsize(join(root, name)) for name in files])
+        return dir_size
 
     def run(self):
         global server
@@ -754,6 +759,7 @@ class MultiServer(Thread):
         server[self.id].register_function(self.getFilelist,"getFilelist")
         server[self.id].register_function(self.getfilelist_client,"getfilelist_client")
         server[self.id].register_function(self.copyFile,"copyFile")
+        server[self.id].register_function(self.getdirsize,"getdirsize")
 
         #### sharing file
         server[self.id].register_function(self.share_File, "share_File")
